@@ -1,12 +1,13 @@
-# stdhttp_utils
+# std_http_utils
 http 1.1 utils using STL only. it contains
-- uri parser (WIP...)
+- uri parser
+- usign pmr namespace
 - http request generator (WIP...)
 - http response parser (WIP...)
-- usign pmr namespace (WIP...)
+- http request parser (Planing...)
 
 Please, see tests for examples: each test partition contains test case with name example.
 
 # dependencies
-only STL for using
-and Boost library for build tests
+- only STL for using.
+- Boost and ICU libraries for build tests

@@ -107,12 +107,18 @@ class basic_uri_parser final {
 public:
 	basic_uri_parser() : basic_uri_parser(def_mem()) {}
 	basic_uri_parser(typename Traits::string_type url)
-	    : basic_uri_parser(def_mem(), url) {}
-	basic_uri_parser(std::pmr::memory_resource* mem)
-	    : basic_uri_parser(mem, typename Traits::string_type{}) {}
-	basic_uri_parser(std::pmr::memory_resource* mem, typename Traits::string_type url)
-	    : mem(mem)
+	    : mem(url.get_allocator().resource())
 	    , source(std::move(url))
+	{
+		recalculate();
+	}
+
+	basic_uri_parser(std::pmr::memory_resource* mem)
+	    : basic_uri_parser(mem, "") {}
+	basic_uri_parser(std::pmr::memory_resource* mem, typename Traits::string_view_type url)
+	    : mem(mem)
+	    , source(url, mem)
+	    , parsed(mem)
 	{
 		recalculate();
 	}
