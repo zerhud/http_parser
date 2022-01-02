@@ -21,10 +21,8 @@ struct pmr_narrow_traits {
 	using regex_type = std::regex;
 	using match_type = std::pmr::smatch;
 
-	static constexpr char eq_sign = '=';
-	static constexpr char amp_sign = '&';
-	static constexpr string_view_type slash = "/";
-	static constexpr string_view_type https = "https";
+	static inline char ascii_to_char_t(char v) {return v;}
+	static inline string_view_type ascii_to_char_t(std::string_view v) {return v;}
 
 	static inline bool regex_match(const string_type& str, match_type& m, const regex_type& e)
 	{
@@ -103,7 +101,7 @@ public:
 		auto pstr = parsed[12].str();
 		if(!pstr.empty()) {
 			port_ = std::stoi(pstr);
-		} else if(scheme() == Traits::https) {
+		} else if(scheme() == Traits::ascii_to_char_t("https")) {
 			port_ = 443;
 		}
 		return port_;
@@ -113,7 +111,7 @@ public:
 	typename Traits::string_view_type path() const
 	{
 		auto ret = extract_str(13);
-		if(ret.empty()) return Traits::slash;
+		if(ret.empty()) return Traits::ascii_to_char_t("/");
 		return ret;
 	}
 	typename Traits::string_view_type request() const
@@ -129,6 +127,24 @@ public:
 	typename Traits::string_view_type params() const { return extract_str(15); }
 	std::optional<typename Traits::string_view_type> param(typename Traits::string_view_type name) const
 	{
+		auto data = params();
+		for(std::size_t begin=0;begin<data.size();++begin) {
+			std::size_t eq_pos = data.find(Traits::ascii_to_char_t('='), begin);
+			std::size_t amp_pos = data.find(Traits::ascii_to_char_t('&'), begin);
+			if(amp_pos==Traits::string_type::npos) amp_pos = data.size();
+			std::size_t name_finish_pos = std::min(eq_pos, amp_pos);
+			auto cur_name = data.substr(begin, name_finish_pos - begin);
+			if(cur_name == name) {
+				if(eq_pos == Traits::string_type::npos)
+					return typename Traits::string_view_type{};
+				return data.substr(
+				            name_finish_pos + 1,
+				            amp_pos == name_finish_pos
+				            ? 0
+				            : amp_pos - name_finish_pos - 1);
+			}
+			begin = amp_pos;
+		}
 		return std::nullopt;
 	}
 
