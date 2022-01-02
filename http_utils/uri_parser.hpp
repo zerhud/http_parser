@@ -21,17 +21,52 @@ struct pmr_narrow_traits {
 	using regex_type = std::regex;
 	using match_type = std::pmr::smatch;
 
+	static constexpr string_view_type slash = "/";
+
 	static inline char ascii_to_char_t(char v) {return v;}
-	static inline string_view_type ascii_to_char_t(std::string_view v) {return v;}
+	static inline bool ascii_eq(string_view_type left, std::string_view ascii_v) {
+		return left == ascii_v;
+	}
 
 	static inline bool regex_match(const string_type& str, match_type& m, const regex_type& e)
 	{
 		return std::regex_search(str, m, e);
 	}
 
-	static inline auto create_extended(const char* r)
+	static inline auto create_extended(std::pmr::memory_resource*, const char* r)
 	{
 		return std::regex(r, std::regex::extended);
+	}
+};
+struct pmr_wide_traits {
+	using string_type = std::pmr::wstring;
+	using string_view_type = std::wstring_view;
+	using regex_type = std::wregex;
+	using match_type = std::pmr::wsmatch;
+
+	static constexpr string_view_type slash = L"/";
+
+	static inline wchar_t ascii_to_char_t(char v) {return v;}
+	static inline bool ascii_eq(string_view_type left, std::string_view ascii_v) {
+		if(left.size() == ascii_v.size()) {
+			for(std::size_t i=0;i<left.size();++i)
+				if(left[i] != ascii_to_char_t(ascii_v[i]))
+					return false;
+			return true;
+		}
+		return false;
+	}
+
+	static inline bool regex_match(const string_type& str, match_type& m, const regex_type& e)
+	{
+		return std::regex_search(str, m, e);
+	}
+
+	static inline auto create_extended(std::pmr::memory_resource* mem, std::string_view r)
+	{
+		string_type expr(mem);
+		for(auto& c:r) expr += ascii_to_char_t(c);
+		return std::wregex(expr, std::regex::extended);
 	}
 };
 
@@ -44,7 +79,7 @@ class basic_uri_parser final {
 
 	void recalculate()
 	{
-		static auto uri_parser = Traits::create_extended(
+		auto uri_parser = Traits::create_extended(mem,
 		        "^((([^:/?#]+):)?" // http
 		        "(//((([^:@]+)(:([^@]+))?@))?([^/:?#]*))" // user:pass@ya.com
 		        "(:([0-9]+))?" // :80
@@ -53,7 +88,7 @@ class basic_uri_parser final {
 		        "(#(.*))?)?$" // #anchor
 		        );
 		bool result = Traits::regex_match(source, parsed, uri_parser);
-		result = result && parsed.ready() && !parsed.empty();
+		result = result && !parsed.empty();
 		if(!result) throw std::runtime_error("cannot parse uri");
 	}
 
@@ -101,7 +136,7 @@ public:
 		auto pstr = parsed[12].str();
 		if(!pstr.empty()) {
 			port_ = std::stoi(pstr);
-		} else if(scheme() == Traits::ascii_to_char_t("https")) {
+		} else if(Traits::ascii_eq(scheme(), "https")) {
 			port_ = 443;
 		}
 		return port_;
@@ -111,7 +146,7 @@ public:
 	typename Traits::string_view_type path() const
 	{
 		auto ret = extract_str(13);
-		if(ret.empty()) return Traits::ascii_to_char_t("/");
+		if(ret.empty()) return Traits::slash;
 		return ret;
 	}
 	typename Traits::string_view_type request() const
@@ -125,7 +160,8 @@ public:
 	}
 	typename Traits::string_view_type anchor() const { return extract_str(17); }
 	typename Traits::string_view_type params() const { return extract_str(15); }
-	std::optional<typename Traits::string_view_type> param(typename Traits::string_view_type name) const
+	std::optional<typename Traits::string_view_type>
+	param(typename Traits::string_view_type name) const
 	{
 		auto data = params();
 		for(std::size_t begin=0;begin<data.size();++begin) {
@@ -153,5 +189,6 @@ public:
 };
 
 using uri_parser = basic_uri_parser<pmr_narrow_traits>;
+using uri_wparser = basic_uri_parser<pmr_wide_traits>;
 
 } // namespace http_utils

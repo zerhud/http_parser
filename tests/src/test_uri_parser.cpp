@@ -1,11 +1,36 @@
 #define BOOST_TEST_DYN_LINK    
 #define BOOST_TEST_MODULE uri
-      
+
+#include <chrono>
+#include <boost/regex.hpp>
 #include <boost/test/unit_test.hpp>
 #include <http_utils/uri_parser.hpp>
 
+namespace utf = boost::unit_test;
+
+constexpr bool enable_speed_tests =
+        #ifdef  ENABLE_SPEED_TESTS
+        true
+        #else
+        false
+        #endif
+        ;
+
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(uri)
+
+struct pmr_boost_traits : http_utils::pmr_narrow_traits {
+using regex_type = boost::regex;
+using match_type = boost::cmatch;
+static inline bool regex_match(const string_type& str, match_type& m, const regex_type& e)
+{
+	return boost::regex_match(str.c_str(), m, e);
+}
+static inline auto create_extended(std::pmr::memory_resource*, const char* r)
+{
+	return boost::regex(r, boost::regex::extended);
+}
+};
 
 using http_utils::uri_parser;
 
@@ -23,6 +48,29 @@ BOOST_AUTO_TEST_CASE(example)
 	BOOST_TEST(rb.params() == "a=12");
 	BOOST_TEST(rb.param("a").value() == "12");
 	BOOST_TEST(rb.param("b").has_value() == false);
+}
+BOOST_AUTO_TEST_CASE(speed, * utf::label("speed") * utf::enable_if<enable_speed_tests>())
+{
+	using uri_bparser = http_utils::basic_uri_parser<pmr_boost_traits>;
+	auto start = std::chrono::high_resolution_clock::now();
+	for(std::size_t i=0;i<10'000;++i)
+		uri_bparser rb("https://user:pa$s@google.com:81/some/path?a=12#b");
+	auto stop = std::chrono::high_resolution_clock::now();
+	auto dur = stop - start;
+	BOOST_TEST(std::chrono::duration_cast<std::chrono::milliseconds>(dur).count() < 5000);
+}
+BOOST_AUTO_TEST_CASE(wide)
+{
+	using http_utils::uri_wparser;
+	uri_wparser rb(L"https://user:pa$s@google.com:81/some/path?a=12#b");
+	BOOST_CHECK(rb.scheme() == L"https");
+	BOOST_CHECK(rb.path() == L"/some/path");
+	BOOST_CHECK(rb.param(L"a").value() == L"12");
+	BOOST_CHECK(rb.port() == 81);
+
+	BOOST_TEST((uri_wparser(L"http://g.com")).port() == 80);
+	BOOST_TEST((uri_wparser(L"https://g.c/s/p?a=1#b")).port() == 443);
+	BOOST_TEST((uri_wparser(L"https://u:pa$s@g.c:81/s/p?a=1#b")).port() == 81);
 }
 BOOST_AUTO_TEST_CASE(request)
 {
