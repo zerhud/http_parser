@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.18)
+project(stdhttp_utils_tests LANGUAGES CXX C VERSION 0.2.0.0)
+
+find_package(Boost COMPONENTS unit_test_framework REQUIRED)
+
+macro(add_exe name)
+	add_executable(${name} src/${name}.cpp)
+	target_link_libraries(${name} PRIVATE stdhttp_utils ${Boost_LIBRARIES})
+endmacro()
+macro(add_unit_test name)
+	add_exe(test_${name})
+	add_test(NAME ${name} COMMAND test_${name})
+endmacro()
+
+add_unit_test(uri_parser)
