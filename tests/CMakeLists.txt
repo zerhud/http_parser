@@ -18,3 +18,4 @@ macro(add_unit_test name)
 endmacro()
 
 add_unit_test(uri_parser)
+add_unit_test(request_generator)
