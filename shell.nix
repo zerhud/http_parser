@@ -2,7 +2,7 @@
 let
   stdenv = pkgs.gcc11Stdenv;
 in stdenv.mkDerivation rec {
-  name = "stdhttp_utils";
+  name = "std_http_utils";
   src = pkgs.fetchFromGitHub {
     repo = name;
     owner = "zerhud";
