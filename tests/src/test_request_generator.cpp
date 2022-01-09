@@ -9,6 +9,7 @@ BOOST_AUTO_TEST_SUITE(generator)
 using http_utils::request_generator;
 BOOST_AUTO_TEST_CASE(example)
 {
+	using namespace http_utils;
 	request_generator gen;
 	gen << uri("http://g.c/p/ath?a=1")
 	    << header("User-Agent", "Test")
