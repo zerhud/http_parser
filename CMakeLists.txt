@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.18)
 project(std_http_utils LANGUAGES CXX C VERSION 0.2.0.0)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ENABLE_TESTS "compile and execute tests" ON)

@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.18)
 project(stdhttp_utils_tests LANGUAGES CXX C VERSION 0.2.0.0)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 option(ENABLE_SPEED_TESTS "compile and execute speed tests" ON)
 
 find_package(Boost COMPONENTS unit_test_framework regex REQUIRED)
