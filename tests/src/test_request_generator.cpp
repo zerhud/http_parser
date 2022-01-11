@@ -6,6 +6,16 @@
 
 using namespace std::literals;
 
+void check_string(std::string_view result, std::string_view right)
+{
+	std::string tresult;
+	for(std::size_t i=0;i<result.size();++i) {
+		BOOST_TEST_CONTEXT("symbol number " << i << " in " << tresult)
+		        BOOST_TEST_REQUIRE(result.at(i) == right.at(i));
+		tresult += result[i];
+	}
+}
+
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(generator)
 using http_utils::request_generator;
@@ -64,12 +74,23 @@ BOOST_AUTO_TEST_CASE(memory)
 
 	auto body = gen.header("User-Agent", "test").body("ok");
 	BOOST_TEST(body.c_str() == right_body.c_str());
-	std::string tresult;
-	for(std::size_t i=0;i<body.size();++i) {
-		BOOST_TEST_CONTEXT("symbol number " << i << " in " << tresult)
-		        BOOST_TEST_REQUIRE(body.at(i) == right_body.at(i));
-		tresult += body[i];
-	}
+	check_string(body, right_body);
+}
+BOOST_AUTO_TEST_CASE(methods)
+{
+	request_generator gen;
+	gen.method(http_utils::methods::post).uri("http://t.d");
+	std::pmr::string right_body = "POST / HTTP/1.1\r\nHost:t.d\r\n\r\n";
+	BOOST_TEST(gen.body("").c_str() == right_body.c_str());
+	check_string(gen.body(""), right_body);
+	BOOST_TEST(to_string_view(http_utils::methods::get) == "GET");
+	BOOST_TEST(to_string_view(http_utils::methods::head) == "HEAD");
+	BOOST_TEST(to_string_view(http_utils::methods::post) == "POST");
+	BOOST_TEST(to_string_view(http_utils::methods::put) == "PUT");
+	BOOST_TEST(to_string_view(http_utils::methods::delete_method) == "DELETE");
+	BOOST_TEST(to_string_view(http_utils::methods::connect) == "CONNECT");
+	BOOST_TEST(to_string_view(http_utils::methods::trace) == "TRACE");
+	BOOST_TEST(to_string_view(http_utils::methods::patch) == "PATCH");
 }
 BOOST_AUTO_TEST_SUITE_END() // generator
 BOOST_AUTO_TEST_SUITE_END() // core

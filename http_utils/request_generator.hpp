@@ -12,6 +12,9 @@
 
 namespace http_utils {
 
+enum class methods { get, head, post, put, delete_method, connect, trace, patch };
+std::string_view to_string_view(methods m);
+
 struct uri {
 	uri(std::string_view u) : u(u) {}
 	std::string_view u;
@@ -26,10 +29,12 @@ class request_generator {
 	std::pmr::memory_resource* mem;
 	std::pmr::string headers;
 	std::pmr::string head;
+	methods cur_method = methods::get;
 public:
 	request_generator();
 	request_generator(std::pmr::memory_resource* mem);
 
+	request_generator& method(methods m);
 	request_generator& uri(std::string_view u);
 	request_generator& header(std::string_view name, std::string_view val);
 	std::pmr::string body(std::string_view cnt) const ;

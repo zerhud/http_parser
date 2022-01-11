@@ -9,7 +9,22 @@
 
 #include "uri_parser.hpp"
 
+using namespace std::literals;
 using http_utils::request_generator;
+
+std::string_view http_utils::to_string_view(methods m)
+{
+	if(m == methods::get) return "GET"sv;
+	if(m == methods::head) return "HEAD"sv;
+	if(m == methods::post) return "POST"sv;
+	if(m == methods::put) return "PUT"sv;
+	if(m == methods::delete_method) return "DELETE"sv;
+	if(m == methods::connect) return "CONNECT"sv;
+	if(m == methods::trace) return "TRACE"sv;
+	if(m == methods::patch) return "PATCH"sv;
+	assert(false);
+	return ""sv;
+}
 
 request_generator::request_generator()
     : request_generator(std::pmr::get_default_resource())
@@ -24,11 +39,18 @@ request_generator::request_generator(std::pmr::memory_resource *mem)
 	if(!mem) throw std::runtime_error("cannot create request generator without memory resource");
 }
 
+request_generator& request_generator::method(methods m)
+{
+	cur_method = m;
+	return *this;
+}
+
 request_generator& request_generator::uri(std::string_view u)
 {
 	uri_parser prs(mem, u);
-	head = "GET ";
-	head += prs.request();
+	head = std::pmr::string(to_string_view(cur_method), mem);
+	head += " ";
+	head += prs.request().empty() ? prs.path() : prs.request();
 	head += " HTTP/1.1\r\nHost:";
 	head += prs.host();
 	head += "\r\n";
