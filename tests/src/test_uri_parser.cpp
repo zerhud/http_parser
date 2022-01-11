@@ -145,6 +145,49 @@ BOOST_AUTO_TEST_CASE(wrong_url)
 	BOOST_CHECK((uri_parser("h://g.c/?a&bc")).param("c") == std::nullopt);
 }
 
+BOOST_AUTO_TEST_SUITE(parser)
+using uri_parser = http_utils::uri_parser_machine<char>;
+using uri_wparser = http_utils::uri_parser_machine<wchar_t>;
+BOOST_AUTO_TEST_CASE(simple)
+{
+	uri_parser p, p2;
+	p("https://user:pa$s@google.com:81/some/path?a=12#b");
+	BOOST_TEST(p.scheme == "https");
+	BOOST_TEST(p.user == "user");
+	BOOST_TEST(p.password == "pa$s");
+	BOOST_TEST(p.domain == "google.com");
+	BOOST_TEST(p.port == "81");
+	BOOST_TEST(p.path == "/some/path");
+	BOOST_TEST(p.query == "a=12");
+	BOOST_TEST(p.anchor == "b");
+
+	BOOST_CHECK(p == p);
+	BOOST_CHECK(p != p2);
+	p2("https://user:pa$s@google.com:81/some/path?a=12");
+	BOOST_CHECK(p != p2);
+	p2("https://user:pa$s@google.com:81/some/path?a=12#b");
+	BOOST_CHECK(p == p2);
+
+	uri_wparser wp;
+	wp(L"https://user:pa$s@google.com:81/some/path?a=12#b");
+	BOOST_CHECK(wp.scheme == L"https");
+	BOOST_CHECK(wp.user == L"user");
+}
+BOOST_AUTO_TEST_CASE(without_scheme)
+{
+	uri_parser p, p2;
+	p("user:pa$s@google.com:81/some/path?a=12#b");
+	BOOST_TEST(p.scheme == "");
+	BOOST_TEST(p.user == "user");
+	BOOST_TEST(p.password == "pa$s");
+	BOOST_TEST(p.domain == "google.com");
+	BOOST_TEST(p.port == "81");
+	BOOST_TEST(p.path == "/some/path");
+	BOOST_TEST(p.query == "a=12");
+	BOOST_TEST(p.anchor == "b");
+	BOOST_CHECK(p == p2("//user:pa$s@google.com:81/some/path?a=12#b"));
+}
+BOOST_AUTO_TEST_SUITE_END() // parser
 BOOST_AUTO_TEST_SUITE_END() // uri
 BOOST_AUTO_TEST_SUITE_END() // core
 

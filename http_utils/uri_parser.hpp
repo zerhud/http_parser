@@ -16,6 +16,160 @@
 namespace http_utils {
 
 
+template<typename Char, typename StringView = std::basic_string_view<Char>>
+class uri_parser_machine {
+	enum class state {
+		scheme, scheme_end,
+		user, password, dog,
+		domain, port, path,
+		query, anchor,
+		finish };
+
+	Char cur_symbol;
+	state cur_state = state::scheme;
+	StringView src;
+	std::size_t begin=0;
+	void parse()
+	{
+		switch(cur_state) {
+		case state::scheme: pscheme(); break;
+		case state::scheme_end: pscheme_end(); break;
+		case state::user: puser(); break;
+		case state::password: ppassword(); break;
+		case state::dog: pdog(); break;
+		case state::domain: pdomain(); break;
+		case state::port: pport(); break;
+		case state::path: ppath(); break;
+		case state::query: pquery(); break;
+		case state::anchor: panchor(); break;
+		}
+	}
+
+	void to_state(state s)
+	{
+		cur_state = s;
+		src = src.substr(begin);
+		begin = 0;
+	}
+
+	void switch_state(state s)
+	{
+		cur_state = s;
+	}
+
+	void pscheme()
+	{
+		if(is_colon()) {
+			scheme = src.substr(0, begin);
+			to_state(state::scheme_end);
+		}
+		else if(!is_AZ() && !is_az()) {
+			switch_state(state::user);
+		}
+	}
+
+	void pscheme_end() { if(!is_slash()) to_state(state::user); }
+	void puser()
+	{
+		if(is_dog()) {
+			user = src.substr(0, begin);
+			to_state(state::dog);
+		}
+		if(is_colon()) {
+			user = src.substr(0, begin);
+			to_state(state::password);
+		}
+	}
+	void ppassword()
+	{
+		if(is_dog()) {
+			if(begin != 0) password = src.substr(1, begin-1);
+			to_state(state::dog);
+		}
+	}
+	void pdog() { if(!is_dog()) to_state(state::domain); }
+	void pdomain()
+	{
+		if(is_colon() || is_slash()) {
+			domain = src.substr(0, begin);
+			to_state(state::port);
+		}
+	}
+	void pport()
+	{
+		if(is_slash()) {
+			if(begin != 0) port = src.substr(1, begin-1);
+			to_state(state::path);
+		}
+	}
+	void ppath()
+	{
+		if(is_question() || is_number()) {
+			if(begin !=0 ) path = src.substr(0, begin);
+			to_state(state::query);
+		}
+	}
+	void pquery()
+	{
+		if(is_number()) {
+			if(begin !=0 ) query = src.substr(1, begin-1);
+			to_state(state::anchor);
+		}
+	}
+	void panchor()
+	{
+		if(is_end()) anchor = src.substr(1);
+		to_state(state::finish);
+	}
+
+	bool is_AZ() const { return 0x41 <= cur_symbol && cur_symbol <= 0x5A; }
+	bool is_az() const { return 0x61 <= cur_symbol && cur_symbol <= 0x7A; }
+	bool is_slash() const { return cur_symbol == 0x2F; }
+	bool is_colon() const { return cur_symbol == 0x3A; }
+	bool is_dog() const { return cur_symbol == 0x40; }
+	bool is_digit() const { return 0x30 <= cur_symbol && cur_symbol <= 0x39; }
+	bool is_question() const { return cur_symbol == 0x3F; }
+	bool is_number() const { return cur_symbol == 0x23; }
+	bool is_end() const { return src.size() <= begin + 1; }
+public:
+	uri_parser_machine& operator()(StringView uri)
+	{
+		cur_state = state::scheme;
+		src = uri;
+		for(begin=0;begin<src.size();++begin) {
+			cur_symbol = src[begin];
+			parse();
+		}
+		return *this;
+	}
+
+	StringView scheme;
+	StringView user, password;
+	StringView domain;
+	StringView port;
+	StringView path;
+	StringView query;
+	StringView anchor;
+};
+
+template<typename Char, typename StringView>
+inline bool operator == (
+        const uri_parser_machine<Char,StringView>& left,
+        const uri_parser_machine<Char,StringView>& right)
+{
+	return
+	        left.scheme == right.scheme
+	     && left.user == right.user
+	     && left.password == right.password
+	     && left.domain == right.domain
+	     && left.port == right.port
+	     && left.path == right.path
+	     && left.query == right.query
+	     && left.anchor == right.anchor
+	     ;
+}
+
+
 struct pmr_narrow_traits {
 	using string_type = std::pmr::string;
 	using string_view_type = std::string_view;
