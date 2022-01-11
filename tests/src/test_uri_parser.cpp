@@ -148,7 +148,7 @@ BOOST_AUTO_TEST_CASE(wrong_url)
 BOOST_AUTO_TEST_SUITE(parser)
 using uri_parser = http_utils::uri_parser_machine<char>;
 using uri_wparser = http_utils::uri_parser_machine<wchar_t>;
-BOOST_AUTO_TEST_CASE(simple)
+BOOST_AUTO_TEST_CASE(full_uri)
 {
 	uri_parser p, p2;
 	p("https://user:pa$s@google.com:81/some/path?a=12#b");
@@ -186,8 +186,107 @@ BOOST_AUTO_TEST_CASE(without_scheme)
 	BOOST_TEST(p.query == "a=12");
 	BOOST_TEST(p.anchor == "b");
 	BOOST_CHECK(p == p2("//user:pa$s@google.com:81/some/path?a=12#b"));
+	BOOST_TEST(p2.scheme == "");
+	BOOST_TEST(p2.user == "user");
+	BOOST_TEST(p2.password == "pa$s");
+	BOOST_TEST(p2.domain == "google.com");
+}
+BOOST_AUTO_TEST_CASE(without_user_pass)
+{
+	uri_parser p, p2;
+	p("google.com:81/some/path?a=12#b");
+	BOOST_TEST(p.scheme == "");
+	BOOST_TEST(p.user == "");
+	BOOST_TEST(p.password == "");
+	BOOST_TEST(p.domain == "google.com");
+	BOOST_TEST(p.port == "81");
+	BOOST_TEST(p.path == "/some/path");
+	BOOST_CHECK(p == p2("//google.com:81/some/path?a=12#b"));
+}
+BOOST_AUTO_TEST_CASE(without_port)
+{
+	uri_parser p, p2;
+	p("google.com/some/path?a=12#b");
+	BOOST_TEST(p.scheme == "");
+	BOOST_TEST(p.user == "");
+	BOOST_TEST(p.password == "");
+	BOOST_TEST(p.domain == "google.com");
+	BOOST_TEST(p.port == "");
+	BOOST_TEST(p.path == "/some/path");
+	BOOST_CHECK(p == p2("//google.com/some/path?a=12#b"));
+}
+BOOST_AUTO_TEST_CASE(without_path)
+{
+	uri_parser p, p2;
+	p("google.com/?a=12#b");
+	BOOST_TEST(p.scheme == "");
+	BOOST_TEST(p.user == "");
+	BOOST_TEST(p.password == "");
+	BOOST_TEST(p.domain == "google.com");
+	BOOST_TEST(p.port == "");
+	BOOST_TEST(p.path == "/");
+	BOOST_TEST(p.query == "a=12");
+	BOOST_TEST(p.anchor == "b");
+	BOOST_CHECK(p == p2("//google.com/?a=12#b"));
+}
+BOOST_AUTO_TEST_CASE(without_query)
+{
+	uri_parser p, p2;
+	p("google.com/#b");
+	BOOST_TEST(p.scheme == "");
+	BOOST_TEST(p.user == "");
+	BOOST_TEST(p.password == "");
+	BOOST_TEST(p.domain == "google.com");
+	BOOST_TEST(p.port == "");
+	BOOST_TEST(p.path == "/");
+	BOOST_TEST(p.query == "");
+	BOOST_TEST(p.anchor == "b");
+	BOOST_CHECK(p == p2("//google.com/#b"));
+
+	p("http://google.com:1/#b");
+	BOOST_TEST(p.scheme == "http");
+	BOOST_TEST(p.user == "");
+	BOOST_TEST(p.password == "");
+	BOOST_TEST(p.domain == "google.com");
+	BOOST_TEST(p.port == "1");
+	BOOST_TEST(p.path == "/");
+	BOOST_TEST(p.query == "");
+	BOOST_TEST(p.anchor == "b");
+}
+BOOST_AUTO_TEST_CASE(only_domain)
+{
+	uri_parser p, p2, p3;
+	p("google.com");
+	BOOST_TEST(p.scheme == "");
+	BOOST_TEST(p.user == "");
+	BOOST_TEST(p.password == "");
+	BOOST_TEST(p.domain == "google.com");
+	BOOST_TEST(p.port == "");
+	BOOST_TEST(p.path == "");
+	BOOST_TEST(p.query == "");
+	BOOST_TEST(p.anchor == "");
+	BOOST_CHECK(p == p2("//google.com"));
+
+	p("google.com:1");
+	BOOST_TEST(p.scheme == "");
+	BOOST_TEST(p.user == "");
+	BOOST_TEST(p.password == "");
+	BOOST_TEST(p.domain == "google.com");
+	BOOST_TEST(p.port == "1");
+	BOOST_TEST(p.path == "");
+	BOOST_TEST(p.query == "");
+	BOOST_TEST(p.anchor == "");
+
+	p3("google.com/");
+	BOOST_TEST(p3.scheme == "");
+	BOOST_TEST(p3.user == "");
+	BOOST_TEST(p3.password == "");
+	BOOST_TEST(p3.domain == "google.com");
+	BOOST_TEST(p3.port == "");
+	BOOST_TEST(p3.path == "/");
+	BOOST_TEST(p3.query == "");
+	BOOST_TEST(p3.anchor == "");
 }
 BOOST_AUTO_TEST_SUITE_END() // parser
 BOOST_AUTO_TEST_SUITE_END() // uri
 BOOST_AUTO_TEST_SUITE_END() // core
-

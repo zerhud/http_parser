@@ -19,8 +19,8 @@ namespace http_utils {
 template<typename Char, typename StringView = std::basic_string_view<Char>>
 class uri_parser_machine {
 	enum class state {
-		scheme, scheme_end,
-		user, password, dog,
+		scheme, scheme_end_1, scheme_end_2,
+		user_pwd, dog,
 		domain, port, path,
 		query, anchor,
 		finish };
@@ -33,9 +33,9 @@ class uri_parser_machine {
 	{
 		switch(cur_state) {
 		case state::scheme: pscheme(); break;
-		case state::scheme_end: pscheme_end(); break;
-		case state::user: puser(); break;
-		case state::password: ppassword(); break;
+		case state::scheme_end_1: pscheme_end_1(); break;
+		case state::scheme_end_2: pscheme_end_2(); break;
+		case state::user_pwd: puser_pwd(); break;
 		case state::dog: pdog(); break;
 		case state::domain: pdomain(); break;
 		case state::port: pport(); break;
@@ -59,32 +59,42 @@ class uri_parser_machine {
 
 	void pscheme()
 	{
-		if(is_colon()) {
-			scheme = src.substr(0, begin);
-			to_state(state::scheme_end);
-		}
+		if(is_colon()) switch_state(state::scheme_end_1);
 		else if(!is_AZ() && !is_az()) {
-			switch_state(state::user);
+			if(is_slash()) {
+				begin += 2;
+				to_state(state::user_pwd);
+			} else {
+				switch_state(state::user_pwd);
+			}
 		}
 	}
 
-	void pscheme_end() { if(!is_slash()) to_state(state::user); }
-	void puser()
+	void pscheme_end_1() { switch_state( is_slash() ? state::scheme_end_2 : state::user_pwd ); }
+	void pscheme_end_2()
 	{
-		if(is_dog()) {
-			user = src.substr(0, begin);
-			to_state(state::dog);
-		}
-		if(is_colon()) {
-			user = src.substr(0, begin);
-			to_state(state::password);
+		if(!is_slash()) switch_state(state::user_pwd);
+		else {
+			scheme = src.substr(0, begin - 2);
+			++begin;
+			to_state(state::user_pwd);
 		}
 	}
-	void ppassword()
+	void puser_pwd()
 	{
 		if(is_dog()) {
-			if(begin != 0) password = src.substr(1, begin-1);
+			auto up = src.substr(0, begin);
+			auto colon_pos = up.find(0x3A);
+			if(colon_pos == std::string::npos) {
+				user = up;
+			} else {
+				user = up.substr(0, colon_pos);
+				password = up.substr(colon_pos+1);
+			}
 			to_state(state::dog);
+		} else if(is_slash() || is_end()) {
+			begin = 0;
+			switch_state(state::domain);
 		}
 	}
 	void pdog() { if(!is_dog()) to_state(state::domain); }
@@ -92,21 +102,29 @@ class uri_parser_machine {
 	{
 		if(is_colon() || is_slash()) {
 			domain = src.substr(0, begin);
-			to_state(state::port);
+			to_state(is_colon() ? state::port : state::path);
+		} else if(is_end()) {
+			domain = src;
+			to_state(state::finish);
 		}
 	}
 	void pport()
 	{
-		if(is_slash()) {
-			if(begin != 0) port = src.substr(1, begin-1);
+		assert(begin!=0);
+		if(is_end()) {
+			port = src.substr(1);
+			switch_state(state::finish);
+		}
+		else if(!is_digit()) {
+			port = src.substr(1, begin-1);
 			to_state(state::path);
 		}
 	}
 	void ppath()
 	{
-		if(is_question() || is_number()) {
+		if(is_question() || is_number() || is_end()) {
 			if(begin !=0 ) path = src.substr(0, begin);
-			to_state(state::query);
+			to_state(is_number() ? state::anchor : state::query);
 		}
 	}
 	void pquery()
@@ -140,6 +158,7 @@ public:
 			cur_symbol = src[begin];
 			parse();
 		}
+		if(cur_state != state::finish) parse();
 		return *this;
 	}
 
