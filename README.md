@@ -2,7 +2,7 @@
 http 1.1 utils using STL only. it contains
 - uri parser
 - usign pmr namespace
-- http request generator (WIP...)
+- http request generator
 - http response parser (WIP...)
 - http request parser (Planing...)
 

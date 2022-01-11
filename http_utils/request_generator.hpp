@@ -22,28 +22,22 @@ struct header {
 	std::string_view n, v;
 };
 
-struct body {
-	body(std::string_view v) : v(v) {}
-	std::string_view v;
-};
-
 class request_generator {
+	std::pmr::memory_resource* mem;
+	std::pmr::string headers;
+	std::pmr::string head;
 public:
+	request_generator();
+	request_generator(std::pmr::memory_resource* mem);
+
 	request_generator& uri(std::string_view u);
 	request_generator& header(std::string_view name, std::string_view val);
-	request_generator& body(std::string_view cnt);
-
-	std::pmr::string as_string() const;
+	std::pmr::string body(std::string_view cnt) const ;
 };
 
 inline request_generator& operator << (request_generator& left, const uri& right)
 {
 	return left.uri(right.u);
-}
-
-inline request_generator& operator << (request_generator& left, const body& right)
-{
-	return left.body(right.v);
 }
 
 inline request_generator& operator << (request_generator& left, const header& right)

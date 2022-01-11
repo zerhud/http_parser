@@ -8,6 +8,7 @@
  *************************************************************************/
 
 #include <regex>
+#include <cassert>
 #include <optional>
 #include <charconv>
 #include <memory_resource>
