@@ -19,19 +19,6 @@ constexpr bool enable_speed_tests =
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(uri)
 
-struct pmr_boost_traits : http_utils::pmr_narrow_traits {
-using regex_type = boost::regex;
-using match_type = boost::cmatch;
-static inline bool regex_match(const string_type& str, match_type& m, const regex_type& e)
-{
-	return boost::regex_match(str.c_str(), m, e);
-}
-static inline auto create_extended(std::pmr::memory_resource*, const char* r)
-{
-	return boost::regex(r, boost::regex::extended);
-}
-};
-
 using http_utils::uri_parser;
 
 BOOST_AUTO_TEST_CASE(example)
@@ -51,13 +38,13 @@ BOOST_AUTO_TEST_CASE(example)
 }
 BOOST_AUTO_TEST_CASE(speed, * utf::label("speed") * utf::enable_if<enable_speed_tests>())
 {
-	using uri_bparser = http_utils::basic_uri_parser<pmr_boost_traits>;
-	auto start = std::chrono::high_resolution_clock::now();
-	for(std::size_t i=0;i<10'000;++i)
-		uri_bparser rb("https://user:pa$s@google.com:81/some/path?a=12#b");
-	auto stop = std::chrono::high_resolution_clock::now();
-	auto dur = stop - start;
-	BOOST_TEST(std::chrono::duration_cast<std::chrono::milliseconds>(dur).count() < 5000);
+//	using uri_bparser = http_utils::basic_uri_parser<pmr_boost_traits>;
+//	auto start = std::chrono::high_resolution_clock::now();
+//	for(std::size_t i=0;i<10'000;++i)
+//		uri_bparser rb("https://user:pa$s@google.com:81/some/path?a=12#b");
+//	auto stop = std::chrono::high_resolution_clock::now();
+//	auto dur = stop - start;
+//	BOOST_TEST(std::chrono::duration_cast<std::chrono::milliseconds>(dur).count() < 5000);
 }
 BOOST_AUTO_TEST_CASE(wide)
 {
@@ -158,6 +145,7 @@ BOOST_AUTO_TEST_CASE(full_uri)
 	BOOST_TEST(p.domain == "google.com");
 	BOOST_TEST(p.port == "81");
 	BOOST_TEST(p.path == "/some/path");
+	BOOST_TEST(p.path_position == 31);
 	BOOST_TEST(p.query == "a=12");
 	BOOST_TEST(p.anchor == "b");
 
@@ -225,6 +213,7 @@ BOOST_AUTO_TEST_CASE(without_path)
 	BOOST_TEST(p.domain == "google.com");
 	BOOST_TEST(p.port == "");
 	BOOST_TEST(p.path == "/");
+	BOOST_TEST(p.path_position == 10);
 	BOOST_TEST(p.query == "a=12");
 	BOOST_TEST(p.anchor == "b");
 	BOOST_CHECK(p == p2("//google.com/?a=12#b"));
@@ -263,6 +252,7 @@ BOOST_AUTO_TEST_CASE(only_domain)
 	BOOST_TEST(p.domain == "google.com");
 	BOOST_TEST(p.port == "");
 	BOOST_TEST(p.path == "");
+	BOOST_TEST(p.path_position == 0);
 	BOOST_TEST(p.query == "");
 	BOOST_TEST(p.anchor == "");
 	BOOST_CHECK(p == p2("//google.com"));

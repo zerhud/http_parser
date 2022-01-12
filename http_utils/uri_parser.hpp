@@ -7,11 +7,11 @@
  * See accompanying file LICENSE (at the root of this repository)
  *************************************************************************/
 
-#include <regex>
 #include <cassert>
 #include <optional>
 #include <charconv>
 #include <memory_resource>
+#include <iostream>
 
 namespace http_utils {
 
@@ -21,7 +21,8 @@ class uri_parser_machine {
 	enum class state {
 		scheme, scheme_end_1, scheme_end_2,
 		user_pwd, dog,
-		domain, port, path,
+		domain, port,
+		path_pos, path,
 		query, anchor,
 		finish };
 
@@ -40,6 +41,7 @@ class uri_parser_machine {
 		case state::domain: pdomain(); break;
 		case state::port: pport(); break;
 		case state::path: ppath(); break;
+		case state::path_pos: ppath_pos(); break;
 		case state::query: pquery(); break;
 		case state::anchor: panchor(); break;
 		}
@@ -102,7 +104,7 @@ class uri_parser_machine {
 	{
 		if(is_colon() || is_slash()) {
 			domain = src.substr(0, begin);
-			to_state(is_colon() ? state::port : state::path);
+			to_state(is_colon() ? state::port : state::path_pos);
 		} else if(is_end()) {
 			domain = src;
 			to_state(state::finish);
@@ -117,7 +119,7 @@ class uri_parser_machine {
 		}
 		else if(!is_digit()) {
 			port = src.substr(1, begin-1);
-			to_state(state::path);
+			to_state(state::path_pos);
 		}
 	}
 	void ppath()
@@ -126,6 +128,18 @@ class uri_parser_machine {
 			if(begin !=0 ) path = src.substr(0, begin);
 			to_state(is_number() ? state::anchor : state::query);
 		}
+	}
+	void ppath_pos()
+	{
+		path_position =
+		        scheme.size()
+		      + (scheme.empty() ? 0 : 3)
+		      + (user.empty() ? 0 : (user.size() + 1 + password.size() + 1))
+		      + (domain.size())
+		      + (port.empty() ? 0 : port.size() + 1)
+		      ;
+		switch_state(state::path);
+		ppath();
 	}
 	void pquery()
 	{
@@ -169,6 +183,7 @@ public:
 	StringView path;
 	StringView query;
 	StringView anchor;
+	std::size_t path_position=0;
 };
 
 template<typename Char, typename StringView>
@@ -189,63 +204,9 @@ inline bool operator == (
 }
 
 
-struct pmr_narrow_traits {
-	using string_type = std::pmr::string;
-	using string_view_type = std::string_view;
-	using regex_type = std::regex;
-	using match_type = std::pmr::smatch;
-
-	static constexpr string_view_type slash = "/";
-
-	static inline char ascii_to_char_t(char v) {return v;}
-	static inline bool ascii_eq(string_view_type left, std::string_view ascii_v) {
-		return left == ascii_v;
-	}
-
-	static inline bool regex_match(const string_type& str, match_type& m, const regex_type& e)
-	{
-		return std::regex_search(str, m, e);
-	}
-
-	static inline auto create_extended(std::pmr::memory_resource*, const char* r)
-	{
-		return std::regex(r, std::regex::extended);
-	}
-};
-struct pmr_wide_traits {
-	using string_type = std::pmr::wstring;
-	using string_view_type = std::wstring_view;
-	using regex_type = std::wregex;
-	using match_type = std::pmr::wsmatch;
-
-	static constexpr string_view_type slash = L"/";
-
-	static inline wchar_t ascii_to_char_t(char v) {return v;}
-	static inline bool ascii_eq(string_view_type left, std::string_view ascii_v) {
-		if(left.size() == ascii_v.size()) {
-			for(std::size_t i=0;i<left.size();++i)
-				if(left[i] != ascii_to_char_t(ascii_v[i]))
-					return false;
-			return true;
-		}
-		return false;
-	}
-
-	static inline bool regex_match(const string_type& str, match_type& m, const regex_type& e)
-	{
-		return std::regex_search(str, m, e);
-	}
-
-	static inline auto create_extended(std::pmr::memory_resource* mem, std::string_view r)
-	{
-		string_type expr(mem);
-		for(auto& c:r) expr += ascii_to_char_t(c);
-		return std::wregex(expr, std::regex::extended);
-	}
-};
-
-template<typename Traits>
+template<typename String, typename StringView = std::basic_string_view<typename String::value_type>>
 class basic_uri_parser final {
+	using CharType = typename String::value_type;
 	std::pmr::memory_resource* def_mem()
 	{
 		return std::pmr::get_default_resource();
@@ -253,34 +214,23 @@ class basic_uri_parser final {
 
 	void recalculate()
 	{
-		auto uri_parser = Traits::create_extended(mem,
-		        "^((([^:/?#]+):)?" // http
-		        "(//((([^:@]+)(:([^@]+))?@))?([^/:?#]*))" // user:pass@ya.com
-		        "(:([0-9]+))?" // :80
-		        "([^?#]*)" // /path
-		        "(\\?([^#]*))?" // ?param
-		        "(#(.*))?)?$" // #anchor
-		        );
-		bool result = Traits::regex_match(source, parsed, uri_parser);
-		result = result && !parsed.empty();
-		if(!result) throw std::runtime_error("cannot parse uri");
+		parsed(source);
 	}
 
-	typename Traits::string_view_type extract_str(std::size_t ind) const
+	bool is_ascii_eq(StringView l, std::string_view r)
 	{
-		assert(!parsed.empty());
-		std::size_t pos = parsed.position(ind);
-		std::size_t len = parsed.length(ind);
-		assert(len == 0 || pos + len <= source.size());
-		return typename Traits::string_view_type{ source.data() + pos, len};
+		if(l.size() != r.size()) return false;
+		for(std::size_t i=0;i<l.size();++i) if(l[i]!=r[i]) return false;
+		return true;
 	}
+
 
 	std::pmr::memory_resource* mem;
-	typename Traits::string_type source;
-	typename Traits::match_type parsed;
+	String source;
+	uri_parser_machine<typename String::value_type, StringView> parsed;
 public:
 	basic_uri_parser() : basic_uri_parser(def_mem()) {}
-	basic_uri_parser(typename Traits::string_type url)
+	basic_uri_parser(String url)
 	    : mem(url.get_allocator().resource())
 	    , source(std::move(url))
 	{
@@ -289,16 +239,15 @@ public:
 
 	basic_uri_parser(std::pmr::memory_resource* mem)
 	    : basic_uri_parser(mem, "") {}
-	basic_uri_parser(std::pmr::memory_resource* mem, typename Traits::string_view_type url)
+	basic_uri_parser(std::pmr::memory_resource* mem, StringView url)
 	    : mem(mem)
 	    , source(url, mem)
-	    , parsed(mem)
 	{
 		recalculate();
 	}
 
-	typename Traits::string_view_type uri() const { return source; }
-	void uri(typename Traits::string_view_type nu)
+	StringView uri() const { return source; }
+	void uri(StringView nu)
 	{
 		source = nu;
 		recalculate();
@@ -312,47 +261,49 @@ public:
 	int port() const
 	{
 		int port_=80;
-		//TODO: use string_view here
-		auto pstr = parsed[12].str();
-		if(!pstr.empty()) {
-			port_ = std::stoi(pstr);
-		} else if(Traits::ascii_eq(scheme(), "https")) {
-			port_ = 443;
-		}
+		//TODO: use string_view here somehow (from_chars cannot read wchar)
+//		auto pstr = parsed.port;
+//		if(!pstr.empty()) {
+//			String tmp_str(pstr, mem);
+//			port_ = std::stoi(tmp_str);
+//		} else if(is_ascii_eq(scheme(), "https")) {
+//			port_ = 443;
+//		}
 		return port_;
 	}
-	typename Traits::string_view_type scheme() const { return extract_str(3); }
-	typename Traits::string_view_type host() const { return extract_str(10); }
-	typename Traits::string_view_type path() const
+	StringView scheme() const { return parsed.scheme; }
+	StringView host() const { return parsed.domain; }
+	StringView path() const
 	{
-		auto ret = extract_str(13);
-		if(ret.empty()) return Traits::slash;
+		auto ret = parsed.path;
+		if(ret.empty()) return StringView{(const CharType*)"/", 1};
 		return ret;
 	}
-	typename Traits::string_view_type request() const
+	StringView request() const
 	{
-		std::size_t pos = parsed.position(13);
-		auto params_len = parsed.length(15);
+		std::cout << __LINE__ << ' ' << source << std::endl;
+		std::size_t pos = parsed.path_position;
+		auto params_len = parsed.query.size();
 		std::size_t len =
-		        parsed.length(13) + params_len +
+		        parsed.path.size() + params_len +
 		        (params_len == 0 ? 0 : 1); // 1 is a ? sign
-		return typename Traits::string_view_type{ source.data() + pos, len };
+		std::cout << __LINE__ << '\t' << pos << ' ' << len << std::endl;
+		return StringView{ source.data() + pos, len };
 	}
-	typename Traits::string_view_type anchor() const { return extract_str(17); }
-	typename Traits::string_view_type params() const { return extract_str(15); }
-	std::optional<typename Traits::string_view_type>
-	param(typename Traits::string_view_type name) const
+	StringView anchor() const { return parsed.anchor; }
+	StringView params() const { return parsed.query; }
+	std::optional<StringView> param(StringView name) const
 	{
 		auto data = params();
 		for(std::size_t begin=0;begin<data.size();++begin) {
-			std::size_t eq_pos = data.find(Traits::ascii_to_char_t('='), begin);
-			std::size_t amp_pos = data.find(Traits::ascii_to_char_t('&'), begin);
-			if(amp_pos==Traits::string_type::npos) amp_pos = data.size();
+			std::size_t eq_pos = data.find(0x3D, begin);
+			std::size_t amp_pos = data.find(0x26, begin);
+			if(amp_pos==String::npos) amp_pos = data.size();
 			std::size_t name_finish_pos = std::min(eq_pos, amp_pos);
 			auto cur_name = data.substr(begin, name_finish_pos - begin);
 			if(cur_name == name) {
-				if(eq_pos == Traits::string_type::npos)
-					return typename Traits::string_view_type{};
+				if(eq_pos == String::npos)
+					return StringView{};
 				return data.substr(
 				            name_finish_pos + 1,
 				            amp_pos == name_finish_pos
@@ -364,11 +315,11 @@ public:
 		return std::nullopt;
 	}
 
-	typename Traits::string_view_type user() const { return extract_str(7); }
-	typename Traits::string_view_type pass() const { return extract_str(9); }
+	StringView user() const { return parsed.user; }
+	StringView pass() const { return parsed.password; }
 };
 
-using uri_parser = basic_uri_parser<pmr_narrow_traits>;
-using uri_wparser = basic_uri_parser<pmr_wide_traits>;
+using uri_parser = basic_uri_parser<std::pmr::string>;
+using uri_wparser = basic_uri_parser<std::pmr::wstring>;
 
 } // namespace http_utils
