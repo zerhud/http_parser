@@ -236,11 +236,19 @@ class basic_uri_parser final {
 		parsed(source);
 	}
 
-	bool is_ascii_eq(StringView l, std::string_view r)
+	static bool is_ascii_eq(StringView l, std::string_view r)
 	{
 		if(l.size() != r.size()) return false;
 		for(std::size_t i=0;i<l.size();++i) if(l[i]!=r[i]) return false;
 		return true;
+	}
+
+	static std::int64_t to_int(StringView src)
+	{
+		std::int64_t ret = 0;
+		for(std::size_t i=0;i<src.size();++i)
+			ret = ret * 10 + (int(src[i]) - 48);
+		return ret;
 	}
 
 
@@ -277,17 +285,15 @@ public:
 		return mem;
 	}
 
-	int port() const
+	std::int64_t port() const
 	{
-		int port_=80;
-		//TODO: use string_view here somehow (from_chars cannot read wchar)
-//		auto pstr = parsed.port;
-//		if(!pstr.empty()) {
-//			String tmp_str(pstr, mem);
-//			port_ = std::stoi(tmp_str);
-//		} else if(is_ascii_eq(scheme(), "https")) {
-//			port_ = 443;
-//		}
+		std::int64_t port_=80;
+		auto pstr = parsed.port;
+		//TODO: add more schemes
+		if(!pstr.empty()) port_ = to_int(pstr);
+		else if(is_ascii_eq(scheme(), "https")) {
+			port_ = 443;
+		}
 		return port_;
 	}
 	StringView scheme() const { return parsed.scheme; }
@@ -300,13 +306,11 @@ public:
 	}
 	StringView request() const
 	{
-		std::cout << __LINE__ << ' ' << source << std::endl;
 		std::size_t pos = parsed.path_position;
 		auto params_len = parsed.query.size();
 		std::size_t len =
 		        parsed.path.size() + params_len +
 		        (params_len == 0 ? 0 : 1); // 1 is a ? sign
-		std::cout << __LINE__ << '\t' << pos << ' ' << len << std::endl;
 		return StringView{ source.data() + pos, len };
 	}
 	StringView anchor() const { return parsed.anchor; }
