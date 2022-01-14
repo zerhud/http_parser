@@ -87,6 +87,7 @@ BOOST_AUTO_TEST_CASE(request)
 	BOOST_TEST((uri_parser("http://g.com")).request() == "");
 	BOOST_TEST((uri_parser("http://g.com/")).request() == "/");
 	BOOST_TEST((uri_parser("http://g.com/a/b")).request() == "/a/b");
+	BOOST_TEST((uri_parser("http://g.com/a/b?c")).params() == "c");
 	BOOST_TEST((uri_parser("http://g.com/a/b?c")).request() == "/a/b?c");
 	BOOST_TEST((uri_parser("http://g.com/a/b?c=21")).request() == "/a/b?c=21");
 }
@@ -121,6 +122,9 @@ BOOST_AUTO_TEST_CASE(params)
 	BOOST_TEST((uri_parser("h://g.c/?a=2&b")).param("b").value() == "");
 	BOOST_TEST((uri_parser("h://g.c/?a&b=2")).param("a").value() == "");
 	BOOST_CHECK((uri_parser("h://g.c/?a=2&b")).param("c") == std::nullopt);
+
+	BOOST_TEST((uri_parser("http://g.com/a/b?c")).params() == "c");
+	BOOST_TEST((uri_parser("http://g.com/a/b?c")).param("c").value() == "");
 }
 BOOST_AUTO_TEST_CASE(wrong_url)
 {
@@ -139,8 +143,7 @@ BOOST_AUTO_TEST_CASE(full_uri)
 {
 	uri_parser p, p2;
 	p("https://user:pa$s@google.com:81/some/path?a=12#b");
-	BOOST_TEST(p.scheme == "https");
-	BOOST_TEST(p.user == "user");
+	BOOST_TEST(p.scheme == "https"); BOOST_TEST(p.user == "user");
 	BOOST_TEST(p.password == "pa$s");
 	BOOST_TEST(p.domain == "google.com");
 	BOOST_TEST(p.port == "81");
@@ -276,6 +279,34 @@ BOOST_AUTO_TEST_CASE(only_domain)
 	BOOST_TEST(p3.path == "/");
 	BOOST_TEST(p3.query == "");
 	BOOST_TEST(p3.anchor == "");
+}
+BOOST_AUTO_TEST_CASE(query)
+{
+	uri_parser p;
+	p("http://g.com/a/b?c");
+	BOOST_TEST(p.scheme == "http");
+	BOOST_TEST(p.user == "");
+	BOOST_TEST(p.password == "");
+	BOOST_TEST(p.domain == "g.com");
+	BOOST_TEST(p.port == "");
+	BOOST_TEST(p.path == "/a/b");
+	BOOST_TEST(p.path_position == 12);
+	BOOST_TEST(p.query == "c");
+	BOOST_TEST(p.anchor == "");
+}
+BOOST_AUTO_TEST_CASE(path)
+{
+	uri_parser p;
+	p("http://google.com/a");
+	BOOST_TEST(p.scheme == "http");
+	BOOST_TEST(p.user == "");
+	BOOST_TEST(p.password == "");
+	BOOST_TEST(p.domain == "google.com");
+	BOOST_TEST(p.port == "");
+	BOOST_TEST(p.path == "/a");
+	BOOST_TEST(p.path_position == 17);
+	BOOST_TEST(p.query == "");
+	BOOST_TEST(p.anchor == "");
 }
 BOOST_AUTO_TEST_SUITE_END() // parser
 BOOST_AUTO_TEST_SUITE_END() // uri

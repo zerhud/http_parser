@@ -124,9 +124,12 @@ class uri_parser_machine {
 	}
 	void ppath()
 	{
-		if(is_question() || is_number() || is_end()) {
-			if(begin !=0 ) path = src.substr(0, begin);
+		if(is_question() || is_number()) {
+			path = src.substr(0, begin);
 			to_state(is_number() ? state::anchor : state::query);
+		} else if(is_end()) {
+			path = src.substr(0);
+			switch_state(state::finish);
 		}
 	}
 	void ppath_pos()
@@ -144,8 +147,11 @@ class uri_parser_machine {
 	void pquery()
 	{
 		if(is_number()) {
-			if(begin !=0 ) query = src.substr(1, begin-1);
+			if(begin !=0) query = src.substr(1, begin-1);
 			to_state(state::anchor);
+		} else if(is_end()) {
+			query = src.substr(1);
+			to_state(state::finish);
 		}
 	}
 	void panchor()
@@ -163,10 +169,23 @@ class uri_parser_machine {
 	bool is_question() const { return cur_symbol == 0x3F; }
 	bool is_number() const { return cur_symbol == 0x23; }
 	bool is_end() const { return src.size() <= begin + 1; }
+	void clear_state()
+	{
+		cur_state = state::scheme;
+		scheme = StringView{};
+		user = StringView{};
+		password = StringView{};
+		domain = StringView{};
+		port = StringView{};
+		path = StringView{};
+		query = StringView{};
+		anchor = StringView{};
+		path_position=0;
+	}
 public:
 	uri_parser_machine& operator()(StringView uri)
 	{
-		cur_state = state::scheme;
+		clear_state();
 		src = uri;
 		for(begin=0;begin<src.size();++begin) {
 			cur_symbol = src[begin];
