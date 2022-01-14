@@ -2,7 +2,6 @@
 #define BOOST_TEST_MODULE uri
 
 #include <chrono>
-#include <boost/regex.hpp>
 #include <boost/test/unit_test.hpp>
 #include <http_utils/uri_parser.hpp>
 

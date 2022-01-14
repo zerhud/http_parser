@@ -10,4 +10,4 @@ Please, see tests for examples: each test partition contains test case with name
 
 # dependencies
 - only STL for using.
-- Boost and ICU libraries for build tests
+- Boost for build tests
