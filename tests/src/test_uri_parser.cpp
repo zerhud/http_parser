@@ -127,9 +127,6 @@ BOOST_AUTO_TEST_CASE(params)
 }
 BOOST_AUTO_TEST_CASE(wrong_url)
 {
-	BOOST_CHECK_THROW(uri_parser("abra"), std::exception);
-	BOOST_CHECK_THROW(uri_parser("://g.c"), std::exception);
-	BOOST_CHECK_THROW(uri_parser("goo gle.com"), std::exception);
 	BOOST_CHECK((uri_parser("h://g.c/?a=2&=")).param("c") == std::nullopt);
 	BOOST_TEST((uri_parser("h://g.c/?a=2&=")).param("a").value() == "2");
 	BOOST_CHECK((uri_parser("h://g.c/?a&bc")).param("c") == std::nullopt);
