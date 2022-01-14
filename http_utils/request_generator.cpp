@@ -6,6 +6,7 @@
  *************************************************************************/
 
 #include "request_generator.hpp"
+#include <charconv>
 
 #include "uri_parser.hpp"
 
