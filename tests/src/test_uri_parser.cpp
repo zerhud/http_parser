@@ -304,6 +304,11 @@ BOOST_AUTO_TEST_CASE(path)
 	BOOST_TEST(p.query == "");
 	BOOST_TEST(p.anchor == "");
 }
+BOOST_AUTO_TEST_CASE(wrong)
+{
+	uri_parser p;
+	BOOST_CHECK_THROW(p("http:/"), std::exception);
+}
 BOOST_AUTO_TEST_SUITE_END() // parser
 BOOST_AUTO_TEST_SUITE_END() // uri
 BOOST_AUTO_TEST_SUITE_END() // core

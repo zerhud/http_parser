@@ -190,6 +190,8 @@ public:
 			parse();
 		}
 		if(cur_state != state::finish) parse();
+		if(cur_state != state::finish)
+			throw std::runtime_error("cannot parse uri");
 		return *this;
 	}
 
