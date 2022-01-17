@@ -30,11 +30,13 @@ response_parser::response_parser(
 
 response_parser& response_parser::operator()(std::string_view data)
 {
+	assert(parsing.empty() || parsing.size() == 1);
+	assert((parsing.empty() && result.data().empty()) || result.data().size() != 0);
 	std::size_t size_before = parsing.size();
-	std::ptrdiff_t starting_pos =
+	std::size_t starting_pos =
 	          parsing.empty()
 	        ? 0
-	        : parsing.data() - result.data().data();
+	        : result.data().size() - parsing.size();
 	result.data() += data;
 	parsing = std::string_view(
 	            result.data().data() + starting_pos,
@@ -76,7 +78,7 @@ void response_parser::pop_back_parsing()
 	assert(!parsing.empty());
 	assert(cur_pos != 0);
 	parsing = parsing.substr(1);
-	cur_pos -= 1;
+	cur_pos = 0;
 }
 
 void response_parser::pbegin()
@@ -180,7 +182,58 @@ void response_parser::pfinishing()
 void response_parser::exec_end()
 {
 	assert(callback);
-	response_message tmp(mem);
-	std::swap(tmp, result);
-	callback(tmp);
+	assert(!parsing.empty());
+	assert(!result.data().empty());
+	std::size_t tail_size = parsing.size() - 1;
+	response_message tmp(std::move(result));
+	result = response_message(mem);
+	cur_pos = 0;
+	assert(tail_size <= tmp.data().size());
+	if(tail_size != 0)
+		result.data() += tmp.data().substr(tmp.data().size() - tail_size);
+	parsing = std::string_view(result.data().data(), result.data().size());
+	to_state(state::begin);
+	callback(std::move(tmp));
+}
+
+void http_utils::response_message::move_headers(response_message& other)
+{
+	assert(headers_.empty());
+	headers_.reserve(other.headers_.size());
+	for(auto& h:other.headers_) {
+		auto& cur = headers_.emplace_back(&data_);
+		cur.name.assign(h.name);
+		cur.value.assign(h.value);
+	}
+}
+
+http_utils::response_message::response_message(std::pmr::memory_resource* mem)
+    : mem(mem)
+    , data_(mem)
+    , reason(&data_)
+    , content(&data_)
+{}
+
+http_utils::response_message::response_message(response_message&& other)
+    : mem(other.mem)
+    , data_(std::move(other.data_))
+    , headers_(mem)
+    , code(other.code)
+    , content_lenght(other.content_lenght)
+    , reason(&data_, other.reason)
+    , content(&data_, other.content)
+{
+	move_headers(other);
+}
+
+http_utils::response_message& http_utils::response_message::operator =(response_message&& other)
+{
+	mem = other.mem;
+	data_ = std::move(other.data_);
+	headers_ = std::pmr::vector<header_view>(mem);
+	move_headers(other);
+	content_lenght = other.content_lenght;
+	reason.assign(&data_, other.reason);
+	content.assign(&data_, other.content);
+	return *this;
 }

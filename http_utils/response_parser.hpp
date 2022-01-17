@@ -30,6 +30,13 @@ public:
 		assign(p, l);
 	}
 
+	basic_position_string_view(const String* s, const basic_position_string_view& other)
+	    : src(s)
+	    , pos(other.pos)
+	    , len(other.len)
+	{
+	}
+
 	basic_position_string_view& operator = (std_string_view sv)
 	{
 		if(!src) throw std::runtime_error("no strign for assign");
@@ -40,6 +47,20 @@ public:
 		pos = sv.data() - src->data();
 		len = sv.size();
 		return *this;
+	}
+
+	void assign(const String* s, const basic_position_string_view& other)
+	{
+		src = s;
+		if(src->size() < other.pos + other.len)
+			throw std::runtime_error("underline string is too small");
+		pos = other.pos;
+		len = other.len;
+	}
+
+	void assign(const basic_position_string_view& other)
+	{
+		assign(src, other);
 	}
 
 	void assign(String* s, std::size_t p, std::size_t l)
@@ -85,13 +106,13 @@ class response_message {
 	std::pmr::string data_;
 
 	std::pmr::vector<header_view> headers_;
+	void move_headers(response_message& other);
 public:
-	response_message(std::pmr::memory_resource* mem)
-	    : mem(mem)
-	    , data_(mem)
-	    , reason(&data_)
-	    , content(&data_)
-	{}
+	response_message(std::pmr::memory_resource* mem);
+
+	response_message(response_message&& other);
+
+	response_message& operator = (response_message&& other);
 
 	std::pmr::string& data() { return data_; }
 	const std::pmr::string& data() const { return data_; }

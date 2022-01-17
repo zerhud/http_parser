@@ -44,6 +44,24 @@ BOOST_AUTO_TEST_SUITE(responses)
 using http_utils::response_parser;
 using http_utils::response_message;
 
+BOOST_AUTO_TEST_CASE(move_message)
+{
+	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
+	response_message from(mem);
+	from.data() += "hello";
+	from.reason = std::string_view(from.data().data()+1, 2);
+	response_message to = std::move(from);
+
+	BOOST_TEST(to.data() == "hello"sv);
+	BOOST_TEST(to.reason == "el"sv);
+
+	from = response_message(mem);
+	from.data() += "world";
+	BOOST_TEST(from.data() == "world"sv);
+	from.reason = std::string_view(from.data().data()+1, 2);
+	BOOST_TEST(from.reason == "or"sv);
+}
+
 BOOST_AUTO_TEST_CASE(example)
 {
 	std::string_view pack1 = "HTTP/1.1 200 OK\r\nConnection: KeepAlive\r\n"sv;
@@ -68,6 +86,27 @@ BOOST_AUTO_TEST_CASE(two_msgs)
 {
 	std::string_view pack1 = "HTTP/1.1 200 OK\r\n\r\n"sv;
 	std::string_view pack2 = "HTTP/1.1 300 NY\r\n\r\n"sv;
+	std::size_t cnt=0;
+	response_parser p([&cnt](response_message msg){
+		++cnt;
+		if(cnt == 1) {
+			BOOST_TEST(msg.code == 200);
+			BOOST_TEST(msg.reason == "OK"sv);
+		} else if(cnt == 2) {
+			BOOST_TEST(msg.code == 300);
+			BOOST_TEST(msg.reason == "NY"sv);
+		}
+		BOOST_TEST(msg.content_lenght == 0);
+		BOOST_TEST(msg.content == ""sv);
+		BOOST_TEST_REQUIRE(msg.headers().size() == 0);
+	});
+	p(pack1)(pack2);
+	BOOST_TEST(cnt==2);
+}
+BOOST_AUTO_TEST_CASE(messages_with_tail)
+{
+	std::string_view pack1 = "HTTP/1.1 200 OK\r\n\r\nHTTP/1.1 3"sv;
+	std::string_view pack2 = "00 NY\r\n\r\n"sv;
 	std::size_t cnt=0;
 	response_parser p([&cnt](response_message msg){
 		++cnt;
