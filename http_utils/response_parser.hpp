@@ -111,8 +111,10 @@ public:
 	response_message(std::pmr::memory_resource* mem);
 
 	response_message(response_message&& other);
+	response_message(const response_message& other) =delete ;
 
 	response_message& operator = (response_message&& other);
+	response_message& operator = (const response_message& other) =delete ;
 
 	std::pmr::string& data() { return data_; }
 	const std::pmr::string& data() const { return data_; }
@@ -158,6 +160,8 @@ class response_parser {
 	std::size_t cur_pos;
 	char cur_symbol;
 	std::string_view parsing;
+
+	void advance_parsing(std::string_view data);
 
 	void parse();
 	void to_state(state st);

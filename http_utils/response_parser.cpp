@@ -30,6 +30,17 @@ response_parser::response_parser(
 
 response_parser& response_parser::operator()(std::string_view data)
 {
+	advance_parsing(data);
+	for(cur_pos=0;cur_pos<parsing.size();++cur_pos) {
+		cur_symbol = parsing[cur_pos];
+		parse();
+	}
+	if(cur_state == state::end) parse();
+	return *this;
+}
+
+void response_parser::advance_parsing(std::string_view data)
+{
 	assert(parsing.empty() || parsing.size() == 1);
 	assert((parsing.empty() && result.data().empty()) || result.data().size() != 0);
 	std::size_t size_before = parsing.size();
@@ -41,12 +52,7 @@ response_parser& response_parser::operator()(std::string_view data)
 	parsing = std::string_view(
 	            result.data().data() + starting_pos,
 	            size_before + data.size());
-	for(cur_pos=0;cur_pos<parsing.size();++cur_pos) {
-		cur_symbol = parsing[cur_pos];
-		parse();
-	}
-	if(cur_state == state::end) parse();
-	return *this;
+	assert(parsing.back() == result.data().back());
 }
 
 void response_parser::parse()
@@ -71,6 +77,7 @@ void response_parser::to_state(state st)
 	parsing = parsing.substr(cur_pos);
 	cur_pos = 0;
 	cur_state = st;
+	assert(parsing.back() == result.data().back());
 }
 
 void response_parser::pop_back_parsing()

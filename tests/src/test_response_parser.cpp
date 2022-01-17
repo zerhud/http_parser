@@ -3,10 +3,13 @@
 
 #include <chrono>
 #include <boost/test/unit_test.hpp>
+#include <boost/test/data/test_case.hpp>
+#include <boost/test/data/monomorphic.hpp>
 #include <http_utils/response_parser.hpp>
 
 using namespace std::literals;
 namespace utf = boost::unit_test;
+namespace bdata = boost::unit_test::data;
 
 constexpr bool enable_speed_tests =
         #ifdef  ENABLE_SPEED_TESTS
@@ -82,10 +85,16 @@ BOOST_AUTO_TEST_CASE(example)
 	p(pack1)(pack2);
 	BOOST_TEST(cnt==1);
 }
-BOOST_AUTO_TEST_CASE(two_msgs)
+BOOST_DATA_TEST_CASE(two_msgs, bdata::make( {
+     "HTTP/1.1 200 OK\r\n\r\n"sv,
+     "HTTP/1.1 200 OK\r\n\r\nHTTP/1.1 3"sv,
+     "blablablaHTTP/1.1 200 OK\r\n\r\nHTTP/1.1 3"sv
+}) ^ bdata::make({
+     "HTTP/1.1 300 NY\r\n\r\n"sv,
+     "00 NY\r\n\r\n"sv,
+     "00 NY\r\n\r\n"sv
+}), pack1, pack2)
 {
-	std::string_view pack1 = "HTTP/1.1 200 OK\r\n\r\n"sv;
-	std::string_view pack2 = "HTTP/1.1 300 NY\r\n\r\n"sv;
 	std::size_t cnt=0;
 	response_parser p([&cnt](response_message msg){
 		++cnt;
@@ -103,27 +112,5 @@ BOOST_AUTO_TEST_CASE(two_msgs)
 	p(pack1)(pack2);
 	BOOST_TEST(cnt==2);
 }
-BOOST_AUTO_TEST_CASE(messages_with_tail)
-{
-	std::string_view pack1 = "HTTP/1.1 200 OK\r\n\r\nHTTP/1.1 3"sv;
-	std::string_view pack2 = "00 NY\r\n\r\n"sv;
-	std::size_t cnt=0;
-	response_parser p([&cnt](response_message msg){
-		++cnt;
-		if(cnt == 1) {
-			BOOST_TEST(msg.code == 200);
-			BOOST_TEST(msg.reason == "OK"sv);
-		} else if(cnt == 2) {
-			BOOST_TEST(msg.code == 300);
-			BOOST_TEST(msg.reason == "NY"sv);
-		}
-		BOOST_TEST(msg.content_lenght == 0);
-		BOOST_TEST(msg.content == ""sv);
-		BOOST_TEST_REQUIRE(msg.headers().size() == 0);
-	});
-	p(pack1)(pack2);
-	BOOST_TEST(cnt==2);
-}
-
 BOOST_AUTO_TEST_SUITE_END() // responses
 BOOST_AUTO_TEST_SUITE_END() // core
