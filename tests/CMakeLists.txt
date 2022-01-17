@@ -22,3 +22,4 @@ endmacro()
 
 add_unit_test(uri_parser)
 add_unit_test(request_generator)
+add_unit_test(response_parser)
