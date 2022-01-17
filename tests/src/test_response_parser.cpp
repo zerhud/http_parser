@@ -117,14 +117,23 @@ BOOST_DATA_TEST_CASE(content, bdata::make( {
      "HTTP/1.1 200 OK\r\nContent-Length:6\r\n\r\ncnt12"sv,
      "HTTP/1.1 200 OK\r\nContent-Length:6\r\n\r\ncnt"sv,
      "HTTP/1.1 200 OK\r\nContent-Length:6\r\n\r"sv,
-     "gHTTP/1.1 200 OK\r\nContent-Length:"sv
+     "gHTTP/1.1 200 OK\r\nContent-Length:"sv,
+     "HTTP/1.1 200 OK\r\nContent-Length:6\r\n\r\ncn"sv
 }) ^ bdata::make({
      "HTTP/1.1 300 NY\r\nContent-Length:6\r\n\r\ncnt123"sv,
-     "3HTTP/1.1 300 NY\r\nContent-Length:6\r\n\r\ncnt123"sv,
+     "3HTTP/1.1 300 NY\r\nContent-Length:6\r\n\r\ncnt1"sv,
      "123HTTP/1.1 300 NY\r\nContent-Length:6\r\n\r\ncnt123"sv,
      "\ncnt123HTTP/1.1 300 NY\r\nContent-Length:6\r\n\r\ncnt123"sv,
-     "6\r\n\r\ncnt123HTTP/1.1 300 NY\r\nContent-Length:6\r\n\r\ncnt123"sv
-}), pack1, pack2)
+     "6\r\n\r\ncnt123HTTP/1.1 300 NY\r\nContent-Length:6\r\n\r\ncnt123"sv,
+     "t1"sv
+}) ^ bdata::make({
+     ""sv,
+     "23"sv,
+     ""sv,
+     ""sv,
+     ""sv,
+     "23HTTP/1.1 300 NY\r\nContent-Length:6\r\n\r\ncnt123"sv
+}), pack1, pack2, pack3)
 {
 	std::size_t cnt=0;
 	response_parser p([&cnt](response_message msg){
@@ -140,7 +149,7 @@ BOOST_DATA_TEST_CASE(content, bdata::make( {
 		BOOST_TEST(msg.content == "cnt123"sv);
 		BOOST_TEST_REQUIRE(msg.headers().size() == 1);
 	});
-	p(pack1)(pack2);
+	p(pack1)(pack2)(pack3);
 	BOOST_TEST(cnt==2);
 }
 BOOST_AUTO_TEST_SUITE_END() // responses
