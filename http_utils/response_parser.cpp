@@ -41,7 +41,6 @@ response_parser& response_parser::operator()(std::string_view data)
 
 void response_parser::advance_parsing(std::string_view data)
 {
-	assert(parsing.empty() || parsing.size() == 1);
 	assert((parsing.empty() && result.data().empty()) || result.data().size() != 0);
 	std::size_t size_before = parsing.size();
 	std::size_t starting_pos =
@@ -52,7 +51,7 @@ void response_parser::advance_parsing(std::string_view data)
 	parsing = std::string_view(
 	            result.data().data() + starting_pos,
 	            size_before + data.size());
-	assert(parsing.back() == result.data().back());
+	assert(&parsing.back() == &result.data().back());
 }
 
 void response_parser::parse()
@@ -67,7 +66,6 @@ void response_parser::parse()
 	case state::header_value: phval(); break;
 	case state::content_begin: pcontent_begin(); break;
 	case state::content: pcontent(); break;
-	case state::finishing: pfinishing(); break;
 	case state::end: exec_end(); break;
 	}
 }
@@ -175,15 +173,14 @@ void response_parser::pcontent_begin()
 
 void response_parser::pcontent()
 {
-	if(cur_pos == result.content_lenght+1) {
-		result.content = parsing.substr(1, cur_pos-1);
-		to_state(state::finishing);
+	assert(0 < result.content_lenght);
+	if(cur_pos < result.content_lenght)
+		cur_pos = result.content_lenght-1;
+	else if(cur_pos == result.content_lenght) {
+		result.content = parsing.substr(1, cur_pos);
+		to_state(state::end);
 	}
-}
-
-void response_parser::pfinishing()
-{
-	if(cur_pos == 3) to_state(state::end);
+	else assert(false);
 }
 
 void response_parser::exec_end()

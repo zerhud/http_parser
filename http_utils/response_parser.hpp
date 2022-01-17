@@ -149,7 +149,7 @@ class response_parser {
 		code, reason,
 		header_begin, header_name, header_sep, header_value,
 		content_begin, content,
-		finishing, end
+		end
 	};
 
 	std::pmr::memory_resource* mem;

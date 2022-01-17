@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(move_message)
 BOOST_AUTO_TEST_CASE(example)
 {
 	std::string_view pack1 = "HTTP/1.1 200 OK\r\nConnection: KeepAlive\r\n"sv;
-	std::string_view pack2 = "Content-Length:3\r\n\r\nabc\r\n\r\n"sv;
+	std::string_view pack2 = "Content-Length:3\r\n\r\nabc"sv;
 	std::size_t cnt=0;
 	response_parser p([&cnt](response_message msg){
 		++cnt;
@@ -108,6 +108,37 @@ BOOST_DATA_TEST_CASE(two_msgs, bdata::make( {
 		BOOST_TEST(msg.content_lenght == 0);
 		BOOST_TEST(msg.content == ""sv);
 		BOOST_TEST_REQUIRE(msg.headers().size() == 0);
+	});
+	p(pack1)(pack2);
+	BOOST_TEST(cnt==2);
+}
+BOOST_DATA_TEST_CASE(content, bdata::make( {
+     "HTTP/1.1 200 OK\r\nContent-Length:6\r\n\r\ncnt123"sv,
+     "HTTP/1.1 200 OK\r\nContent-Length:6\r\n\r\ncnt12"sv,
+     "HTTP/1.1 200 OK\r\nContent-Length:6\r\n\r\ncnt"sv,
+     "HTTP/1.1 200 OK\r\nContent-Length:6\r\n\r"sv,
+     "gHTTP/1.1 200 OK\r\nContent-Length:"sv
+}) ^ bdata::make({
+     "HTTP/1.1 300 NY\r\nContent-Length:6\r\n\r\ncnt123"sv,
+     "3HTTP/1.1 300 NY\r\nContent-Length:6\r\n\r\ncnt123"sv,
+     "123HTTP/1.1 300 NY\r\nContent-Length:6\r\n\r\ncnt123"sv,
+     "\ncnt123HTTP/1.1 300 NY\r\nContent-Length:6\r\n\r\ncnt123"sv,
+     "6\r\n\r\ncnt123HTTP/1.1 300 NY\r\nContent-Length:6\r\n\r\ncnt123"sv
+}), pack1, pack2)
+{
+	std::size_t cnt=0;
+	response_parser p([&cnt](response_message msg){
+		++cnt;
+		if(cnt == 1) {
+			BOOST_TEST(msg.code == 200);
+			BOOST_TEST(msg.reason == "OK"sv);
+		} else if(cnt == 2) {
+			BOOST_TEST(msg.code == 300);
+			BOOST_TEST(msg.reason == "NY"sv);
+		}
+		BOOST_TEST(msg.content_lenght == 6);
+		BOOST_TEST(msg.content == "cnt123"sv);
+		BOOST_TEST_REQUIRE(msg.headers().size() == 1);
 	});
 	p(pack1)(pack2);
 	BOOST_TEST(cnt==2);
