@@ -51,7 +51,7 @@ void response_parser::advance_parsing(std::string_view data)
 	parsing = std::string_view(
 	            result.data().data() + starting_pos,
 	            size_before + data.size());
-	assert(&parsing.back() == &result.data().back());
+	assert(parsing.empty() || &parsing.back() == &result.data().back());
 }
 
 void response_parser::parse()
@@ -75,7 +75,7 @@ void response_parser::to_state(state st)
 	parsing = parsing.substr(cur_pos);
 	cur_pos = 0;
 	cur_state = st;
-	assert(parsing.back() == result.data().back());
+	assert(parsing.empty() || parsing.back() == result.data().back());
 }
 
 void response_parser::pop_back_parsing()

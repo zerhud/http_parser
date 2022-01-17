@@ -1,10 +1,20 @@
 cmake_minimum_required(VERSION 3.18)
-project(std_http_utils LANGUAGES CXX C VERSION 0.2.0.0)
+set(build_number $ENV{build_number})
+if(NOT build_number)
+	set(build_number 0)
+endif()
+project(std_http_utils LANGUAGES CXX C VERSION 0.2.2.${build_number})
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ENABLE_TESTS "compile and execute tests" ON)
+option(USE_LIBCXX_DEBUG "enable glibcxx debug" ON)
+
+if(USE_LIBCXX_DEBUG AND "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+	message("=== use debug version of libcxx")
+	add_compile_definitions(_GLIBCXX_DEBUG _GLIBCXX_DEBUG_PEDANTIC)
+endif()
 
 include(GNUInstallDirs)
 
