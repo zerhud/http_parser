@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ENABLE_SPEED_TESTS "compile and execute speed tests" ON)
 
-find_package(Boost COMPONENTS unit_test_framework regex REQUIRED)
+find_package(Boost COMPONENTS unit_test_framework REQUIRED)
 
 macro(add_exe name)
 	add_executable(${name} src/${name}.cpp)
