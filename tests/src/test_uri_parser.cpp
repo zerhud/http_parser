@@ -132,8 +132,8 @@ BOOST_AUTO_TEST_CASE(wrong_url)
 }
 
 BOOST_AUTO_TEST_SUITE(parser)
-using uri_parser = http_utils::uri_parser_machine<char>;
-using uri_wparser = http_utils::uri_parser_machine<wchar_t>;
+using uri_parser = http_utils::uri_parser_machine<std::string_view>;
+using uri_wparser = http_utils::uri_parser_machine<std::wstring_view>;
 BOOST_AUTO_TEST_CASE(full_uri)
 {
 	uri_parser p, p2;

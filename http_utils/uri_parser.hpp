@@ -14,7 +14,7 @@
 namespace http_utils {
 
 
-template<typename Char, typename StringView = std::basic_string_view<Char>>
+template<typename StringView>
 class uri_parser_machine {
 	enum class state {
 		scheme, scheme_end_1, scheme_end_2,
@@ -24,7 +24,7 @@ class uri_parser_machine {
 		query, anchor,
 		finish };
 
-	Char cur_symbol;
+	typename StringView::value_type cur_symbol;
 	state cur_state = state::scheme;
 	StringView src;
 	std::size_t begin=0;
@@ -205,10 +205,10 @@ public:
 	std::size_t path_position=0;
 };
 
-template<typename Char, typename StringView>
+template<typename StringView>
 inline bool operator == (
-        const uri_parser_machine<Char,StringView>& left,
-        const uri_parser_machine<Char,StringView>& right)
+        const uri_parser_machine<StringView>& left,
+        const uri_parser_machine<StringView>& right)
 {
 	return
 	        left.scheme == right.scheme
@@ -254,7 +254,7 @@ class basic_uri_parser final {
 
 	std::pmr::memory_resource* mem;
 	String source;
-	uri_parser_machine<typename String::value_type, StringView> parsed;
+	uri_parser_machine<StringView> parsed;
 public:
 	basic_uri_parser() : basic_uri_parser(def_mem()) {}
 	basic_uri_parser(String url)
