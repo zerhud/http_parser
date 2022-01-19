@@ -223,13 +223,9 @@ inline bool operator == (
 }
 
 
-template<typename String, typename StringView = std::basic_string_view<typename String::value_type>>
+template<typename StringView>
 class basic_uri_parser final {
-	using CharType = typename String::value_type;
-	std::pmr::memory_resource* def_mem()
-	{
-		return std::pmr::get_default_resource();
-	}
+	using CharType = typename StringView::value_type;
 
 	void recalculate()
 	{
@@ -252,23 +248,12 @@ class basic_uri_parser final {
 	}
 
 
-	std::pmr::memory_resource* mem;
-	String source;
+	StringView source;
 	uri_parser_machine<StringView> parsed;
 public:
-	basic_uri_parser() : basic_uri_parser(def_mem()) {}
-	basic_uri_parser(String url)
-	    : mem(url.get_allocator().resource())
-	    , source(std::move(url))
-	{
-		recalculate();
-	}
-
-	basic_uri_parser(std::pmr::memory_resource* mem)
-	    : basic_uri_parser(mem, "") {}
-	basic_uri_parser(std::pmr::memory_resource* mem, StringView url)
-	    : mem(mem)
-	    , source(url, mem)
+	basic_uri_parser() =default ;
+	basic_uri_parser(StringView url)
+	    : source(url)
 	{
 		recalculate();
 	}
@@ -278,11 +263,6 @@ public:
 	{
 		source = nu;
 		recalculate();
-	}
-
-	std::pmr::memory_resource* mem_buffer() const
-	{
-		return mem;
 	}
 
 	std::int64_t port() const
@@ -321,11 +301,11 @@ public:
 		for(std::size_t begin=0;begin<data.size();++begin) {
 			std::size_t eq_pos = data.find(0x3D, begin);
 			std::size_t amp_pos = data.find(0x26, begin);
-			if(amp_pos==String::npos) amp_pos = data.size();
+			if(amp_pos==StringView::npos) amp_pos = data.size();
 			std::size_t name_finish_pos = std::min(eq_pos, amp_pos);
 			auto cur_name = data.substr(begin, name_finish_pos - begin);
 			if(cur_name == name) {
-				if(eq_pos == String::npos)
+				if(eq_pos == StringView::npos)
 					return StringView{};
 				return data.substr(
 				            name_finish_pos + 1,
@@ -342,7 +322,7 @@ public:
 	StringView pass() const { return parsed.password; }
 };
 
-using uri_parser = basic_uri_parser<std::pmr::string>;
-using uri_wparser = basic_uri_parser<std::pmr::wstring>;
+using uri_parser = basic_uri_parser<std::string_view>;
+using uri_wparser = basic_uri_parser<std::wstring_view>;
 
 } // namespace http_utils

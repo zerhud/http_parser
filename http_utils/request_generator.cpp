@@ -48,7 +48,7 @@ request_generator& request_generator::method(methods m)
 
 request_generator& request_generator::uri(std::string_view u)
 {
-	uri_parser prs(mem, u);
+	uri_parser prs(u);
 	head = std::pmr::string(to_string_view(cur_method), mem);
 	head += " ";
 	head += prs.request().empty() ? prs.path() : prs.request();

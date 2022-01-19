@@ -57,29 +57,6 @@ BOOST_AUTO_TEST_CASE(wide)
 	BOOST_TEST((uri_wparser(L"https://g.c/s/p?a=1#b")).port() == 443);
 	BOOST_TEST((uri_wparser(L"https://u:pa$s@g.c:81/s/p?a=1#b")).port() == 81);
 }
-BOOST_AUTO_TEST_CASE(memory, * utf::label("memory"))
-{
-	// unfortunately the regex_match will try to allocate from the default resource
-	std::pmr::unsynchronized_pool_resource mem;
-	uri_parser rb(&mem, "https://user:pa$s@google.com:81/some/path?a=12#b");
-
-	struct raii {
-		raii() {
-			std::pmr::set_default_resource(std::pmr::null_memory_resource());
-		}
-		~raii() {
-			std::pmr::set_default_resource(std::pmr::new_delete_resource());
-		}
-	} mr_setter;
-
-	BOOST_TEST(rb.scheme() == "https");
-	BOOST_TEST(rb.host() == "google.com");
-	BOOST_TEST(rb.port() == 81);
-	BOOST_TEST(rb.params() == "a=12");
-	BOOST_TEST(rb.param("a").value() == "12");
-	BOOST_TEST(rb.param("b").has_value() == false);
-	BOOST_TEST(rb.request() == "/some/path?a=12");
-}
 BOOST_AUTO_TEST_CASE(request)
 {
 	BOOST_TEST((uri_parser("http://g.com")).request() == "");
