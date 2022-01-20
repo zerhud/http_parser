@@ -281,6 +281,7 @@ public:
 	StringView path() const
 	{
 		auto ret = parsed.path;
+		//TODO: use static char array for slash
 		if(ret.empty()) return StringView{(const CharType*)"/", 1};
 		return ret;
 	}

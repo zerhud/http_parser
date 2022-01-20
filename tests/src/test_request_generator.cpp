@@ -18,7 +18,7 @@ void check_string(std::string_view result, std::string_view right)
 
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(generator)
-using http_utils::request_generator;
+using request_generator = http_utils::basic_request_generator<std::pmr::string, std::string_view>;
 BOOST_AUTO_TEST_CASE(example)
 {
 	using namespace http_utils;

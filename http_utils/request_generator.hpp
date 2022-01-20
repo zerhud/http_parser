@@ -8,44 +8,137 @@
  *************************************************************************/
 
 #include <string>
+#include <charconv>
 #include <memory_resource>
+#include "uri_parser.hpp"
 
 namespace http_utils {
 
 enum class methods { get, head, post, put, delete_method, connect, trace, patch };
-std::string_view to_string_view(methods m);
+inline std::string_view to_string_view(methods m)
+{
+	using namespace std::literals;
+	if(m == methods::get) return "GET"sv;
+	if(m == methods::head) return "HEAD"sv;
+	if(m == methods::post) return "POST"sv;
+	if(m == methods::put) return "PUT"sv;
+	if(m == methods::delete_method) return "DELETE"sv;
+	if(m == methods::connect) return "CONNECT"sv;
+	if(m == methods::trace) return "TRACE"sv;
+	if(m == methods::patch) return "PATCH"sv;
+	assert(false);
+	return ""sv;
+}
 
+template<typename StringView>
 struct uri {
-	uri(std::string_view u) : u(u) {}
-	std::string_view u;
+	uri(StringView u) : u(u) {}
+	StringView u;
 };
+uri(const char*) -> uri<std::string_view>;
 
+template<typename StringView>
 struct header {
-	header(std::string_view n, std::string_view v) : n(n), v(v) {}
-	std::string_view n, v;
+	header(StringView n, StringView v) : n(n), v(v) {}
+	StringView n, v;
 };
+header(const char*, const char*) -> header<std::string_view>;
 
-class request_generator {
+template<typename Container, typename StringView>
+class basic_request_generator {
 	std::pmr::memory_resource* mem;
-	std::pmr::string headers;
-	std::pmr::string head;
+	Container headers;
+	Container head;
 	methods cur_method = methods::get;
-public:
-	request_generator();
-	request_generator(std::pmr::memory_resource* mem);
 
-	request_generator& method(methods m);
-	request_generator& uri(std::string_view u);
-	request_generator& header(std::string_view name, std::string_view val);
-	std::pmr::string body(std::string_view cnt) const ;
+	void append(Container& con, StringView tail) const
+	{
+		for(auto& c:tail) append(con, c);
+	}
+
+	template<std::size_t Cnt>
+	void append(Container& con, char(&str)[Cnt]) const
+	{
+		for(std::size_t i=0;i<Cnt;++i)
+			append(con, Container::value_type(str[i]));
+	}
+
+	template<typename Arg, typename... Args>
+	requires( sizeof...(Args) != 0 )
+	void append(Container& con, Arg arg, Args... args) const
+	{
+		append(con, arg);
+		if constexpr (sizeof...(Args) != 0) append(con, args...);
+	}
+
+	void append(Container& con, typename Container::value_type val) const
+	{
+		con.push_back(val);
+	}
+public:
+	basic_request_generator()
+		: basic_request_generator(std::pmr::get_default_resource()) {}
+	basic_request_generator(std::pmr::memory_resource* mem)
+		: mem(mem)
+		, headers(mem)
+		, head(mem)
+	{
+		if(!mem) throw std::runtime_error(
+			"cannot create generator without memory resource");
+	}
+
+	basic_request_generator& method(methods m)
+	{
+		cur_method = m;
+		return *this;
+	}
+
+	basic_request_generator& uri(StringView u)
+	{
+		head.clear();
+		basic_uri_parser<StringView> prs(u);
+		append(head, to_string_view(cur_method));
+		append(head, 0x20); // space
+		append(head, prs.request().empty() ? prs.path() : prs.request());
+		append(head, " HTTP/1.1\r\nHost:");
+		append(head, prs.host());
+		append(head, 0x0D, 0x0A);
+		return *this;
+	}
+
+	basic_request_generator& header(StringView name, StringView val)
+	{
+		append(headers, name, 0x3A, val, 0x0D, 0x0A);
+		return *this;
+	}
+
+	Container body(StringView cnt) const
+	{
+		Container ret{mem};
+		for(auto& h:head) ret.push_back(h);
+		for(auto& h:headers) ret.push_back(h);
+		if(cnt.size() != 0) {
+			std::array<char, std::numeric_limits<std::size_t>::digits10 + 1> str;
+			auto [ptr, ec] = std::to_chars(str.data(), str.data() + str.size(), cnt.size());
+			assert(ec == std::errc());
+			std::string_view len(str.data(), ptr);
+			append(ret, "Content-Length:", len, "\r\n\r\n", cnt);
+		}
+		append(ret, "\r\n");
+		return ret;
+	}
 };
 
-inline request_generator& operator << (request_generator& left, const uri& right)
+template<typename C, typename S>
+inline basic_request_generator<C,S>&
+operator << (basic_request_generator<C,S>& left, const uri<S>& right)
 {
 	return left.uri(right.u);
 }
 
-inline request_generator& operator << (request_generator& left, const header& right)
+template<typename C, typename S>
+inline basic_request_generator<C,S>&
+operator << (basic_request_generator<C,S>& left, const header<S>& right)
 {
 	return left.header(right.n, right.v);
 }
