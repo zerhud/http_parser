@@ -45,6 +45,24 @@ BOOST_AUTO_TEST_CASE(example)
 	                           "User-Agent:Test\r\n\r\n"
 	           );
 }
+BOOST_AUTO_TEST_CASE(example_data_vec)
+{
+	using request_generator = http_utils::basic_request_generator<
+	    std::pmr::vector<std::byte>, std::string_view>;
+	using namespace http_utils;
+	request_generator gen;
+	gen << uri("http://g.c/p/ath?a=1")
+	    << header("User-Agent", "Test")
+	       ;
+	auto result = gen.body("content");
+	std::string_view sv_result ( (char*)result.data(), result.size() );
+	BOOST_TEST(sv_result == "GET /p/ath?a=1 HTTP/1.1\r\n"
+	                              "Host:g.c\r\n"
+	                              "User-Agent:Test\r\n"
+	                              "Content-Length:7\r\n\r\n"
+	                              "content\r\n"
+	           );
+}
 BOOST_AUTO_TEST_CASE(creation)
 {
 	BOOST_CHECK_THROW(request_generator{nullptr}, std::exception);

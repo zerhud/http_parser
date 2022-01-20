@@ -53,7 +53,7 @@ class basic_request_generator {
 
 	void append(Container& con, StringView tail) const
 	{
-		for(auto& c:tail) append(con, c);
+		for(auto& c:tail) append(con, (typename Container::value_type)c);
 	}
 
 	template<std::size_t Cnt>
@@ -71,9 +71,11 @@ class basic_request_generator {
 		if constexpr (sizeof...(Args) != 0) append(con, args...);
 	}
 
-	void append(Container& con, typename Container::value_type val) const
+	template<typename T>
+	requires( !std::is_pointer_v<T> )
+	void append(Container& con, T val) const
 	{
-		con.push_back(val);
+		con.push_back((typename Container::value_type)val);
 	}
 public:
 	basic_request_generator()
@@ -98,7 +100,7 @@ public:
 		head.clear();
 		basic_uri_parser<StringView> prs(u);
 		append(head, to_string_view(cur_method));
-		append(head, 0x20); // space
+		append(head, (typename Container::value_type)0x20); // space
 		append(head, prs.request().empty() ? prs.path() : prs.request());
 		append(head, " HTTP/1.1\r\nHost:");
 		append(head, prs.host());
