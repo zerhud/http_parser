@@ -280,9 +280,9 @@ public:
 	StringView host() const { return parsed.domain; }
 	StringView path() const
 	{
+		static const std::array<CharType, 2> static_slash{ 0x2F, 0x00 };
 		auto ret = parsed.path;
-		//TODO: use static char array for slash
-		if(ret.empty()) return StringView{(const CharType*)"/", 1};
+		if(ret.empty()) return StringView{&static_slash.front(), 1};
 		return ret;
 	}
 	StringView request() const

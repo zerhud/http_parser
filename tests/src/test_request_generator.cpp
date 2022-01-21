@@ -57,10 +57,10 @@ BOOST_AUTO_TEST_CASE(example_data_vec)
 	auto result = gen.body("content");
 	std::string_view sv_result ( (char*)result.data(), result.size() );
 	BOOST_TEST(sv_result == "GET /p/ath?a=1 HTTP/1.1\r\n"
-	                              "Host:g.c\r\n"
-	                              "User-Agent:Test\r\n"
-	                              "Content-Length:7\r\n\r\n"
-	                              "content\r\n"
+	                        "Host:g.c\r\n"
+	                        "User-Agent:Test\r\n"
+	                        "Content-Length:7\r\n\r\n"
+	                        "content\r\n"
 	           );
 }
 BOOST_AUTO_TEST_CASE(creation)
