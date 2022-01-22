@@ -54,6 +54,7 @@ BOOST_AUTO_TEST_CASE(wide)
 	BOOST_CHECK(rb.port() == 81);
 
 	BOOST_TEST((uri_wparser(L"http://g.com")).port() == 80);
+	BOOST_CHECK((uri_wparser(L"http://g.com")).path() == L"/");
 	BOOST_TEST((uri_wparser(L"https://g.c/s/p?a=1#b")).port() == 443);
 	BOOST_TEST((uri_wparser(L"https://u:pa$s@g.c:81/s/p?a=1#b")).port() == 81);
 }
