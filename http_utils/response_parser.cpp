@@ -234,7 +234,7 @@ http_utils::response_message& http_utils::response_message::operator =(response_
 {
 	mem = other.mem;
 	data_ = std::move(other.data_);
-	headers_ = std::pmr::vector<header_view>(mem);
+	headers_ = decltype(headers_)(mem);
 	move_headers(other);
 	content_lenght = other.content_lenght;
 	reason.assign(&data_, other.reason);

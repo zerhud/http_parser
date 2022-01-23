@@ -140,18 +140,19 @@ OStream& operator << (OStream& out, const basic_position_string_view<Container>&
 using pos_string_view = basic_position_string_view<std::pmr::string>;
 using pos_data_view = basic_position_string_view<std::pmr::vector<std::byte>>;
 
+template<typename Con>
 struct header_view {
-	header_view(std::pmr::string* src) : name(src), value(src) {}
+	header_view(Con* src) : name(src), value(src) {}
 
-	pos_string_view name;
-	pos_string_view value;
+	basic_position_string_view<Con> name;
+	basic_position_string_view<Con> value;
 };
 
 class response_message {
 	std::pmr::memory_resource* mem;
 	std::pmr::string data_;
 
-	std::pmr::vector<header_view> headers_;
+	std::pmr::vector<header_view<std::pmr::string>> headers_;
 	void move_headers(response_message& other);
 public:
 	response_message(std::pmr::memory_resource* mem);
@@ -170,7 +171,7 @@ public:
 	pos_string_view reason;
 	pos_string_view content;
 
-	std::pmr::vector<header_view> headers()const { return headers_; }
+	std::pmr::vector<header_view<std::pmr::string>> headers() const { return headers_; }
 	void add_header_name(std::string_view n)
 	{
 		headers_.emplace_back(&data_).name = n;
