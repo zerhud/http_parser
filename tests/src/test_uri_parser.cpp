@@ -42,7 +42,7 @@ BOOST_AUTO_TEST_CASE(speed, * utf::label("speed") * utf::enable_if<enable_speed_
 		uri_parser{"https://user:pa$s@google.com:81/some/path?a=12#b"};
 	auto stop = std::chrono::high_resolution_clock::now();
 	auto dur = stop - start;
-	BOOST_TEST(std::chrono::duration_cast<std::chrono::milliseconds>(dur).count() < 2500);
+	BOOST_TEST(std::chrono::duration_cast<std::chrono::milliseconds>(dur).count() < 2000);
 }
 BOOST_AUTO_TEST_CASE(wide)
 {

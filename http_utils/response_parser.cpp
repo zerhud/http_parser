@@ -82,7 +82,7 @@ void response_parser::pop_back_parsing()
 {
 	assert(!parsing.empty());
 	assert(cur_pos != 0);
-	parsing = parsing.substr(1);
+	parsing.remove_prefix(1);
 	cur_pos = 0;
 }
 
