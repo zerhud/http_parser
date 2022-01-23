@@ -51,6 +51,8 @@ BOOST_AUTO_TEST_CASE(methods)
 	BOOST_TEST(sv.back() == 's');
 	BOOST_TEST(sv.front() == 'e');
 	BOOST_TEST(sv.size() == 2);
+	BOOST_TEST(sv.data() == &sv.front());
+	BOOST_TEST(sv.data()[0] == 'e');
 	sv.assign(0, 4);
 	BOOST_TEST(sv.size() == 4);
 	BOOST_TEST(sv.substr(1,2) == "es"sv);

@@ -79,6 +79,13 @@ public:
 		return *(src->data() + pos);
 	}
 
+	const value_type* data() const
+	{
+		assert(src != nullptr);
+		assert(pos < src->size());
+		return src->data() + pos;
+	}
+
 	void assign(const Container* s, const basic_position_string_view& other)
 	{
 		src = s;
