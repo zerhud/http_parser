@@ -14,23 +14,24 @@
 
 namespace http_utils {
 
-template<typename String>
+template<typename Container>
 class basic_position_string_view {
-	const String* src=nullptr;
+	const Container* src=nullptr;
 	std::size_t pos=0;
 	std::size_t len=0;
 public:
-	using std_string_view = std::basic_string_view<typename String::value_type>;
+	using value_type = typename Container::value_type;
+	using std_string_view = std::basic_string_view<typename Container::value_type>;
 
 	basic_position_string_view() =default ;
-	basic_position_string_view(String* s) : basic_position_string_view(s, 0, 0) {}
-	basic_position_string_view(String* s, std::size_t p, std::size_t l)
+	basic_position_string_view(const Container* s) : basic_position_string_view(s, 0, 0) {}
+	basic_position_string_view(const Container* s, std::size_t p, std::size_t l)
 	    : src(s)
 	{
 		assign(p, l);
 	}
 
-	basic_position_string_view(const String* s, const basic_position_string_view& other)
+	basic_position_string_view(const Container* s, const basic_position_string_view& other)
 	    : src(s)
 	    , pos(other.pos)
 	    , len(other.len)
@@ -49,7 +50,36 @@ public:
 		return *this;
 	}
 
-	void assign(const String* s, const basic_position_string_view& other)
+	bool empty() const { return len == 0; }
+
+	std::size_t const size() { return len; }
+
+	basic_position_string_view<Container> substr(std::size_t p, std::size_t l)
+	{
+		basic_position_string_view<Container> ret(src);
+		ret.pos = this->pos + p;
+		ret.len =  src->size() <= p + l ? src->size() - p : l;
+		return ret;
+	}
+
+	const value_type& operator[](std::size_t i) const
+	{
+		return (*src)[pos + i];
+	}
+
+	const value_type& back() const
+	{
+		assert(!empty());
+		return *(src->data() + pos + len - 1);
+	}
+
+	const value_type& front() const
+	{
+		assert(!empty());
+		return *(src->data() + pos);
+	}
+
+	void assign(const Container* s, const basic_position_string_view& other)
 	{
 		src = s;
 		if(src->size() < other.pos + other.len)
@@ -63,7 +93,7 @@ public:
 		assign(src, other);
 	}
 
-	void assign(String* s, std::size_t p, std::size_t l)
+	void assign(Container* s, std::size_t p, std::size_t l)
 	{
 		src = s;
 		if(src) assign(p, l);
@@ -76,7 +106,15 @@ public:
 			throw std::runtime_error("position is too big in positioned string view");
 		pos = p;
 		std::size_t ctrl = pos + l;
-		len = src->size() < ctrl ? src->size() - pos : l;
+		len = src->size() <= ctrl ? src->size() - pos : l;
+	}
+
+	template<typename C>
+	std::basic_string_view<C> as() const
+	{
+		if(!src) return std::basic_string_view<C>{};
+		assert( pos < src->size() && pos + len <= src->size() );
+		return std::basic_string_view<C>{ (const C*)src->data() + pos, len };
 	}
 
 	operator std_string_view() const
@@ -86,13 +124,14 @@ public:
 	}
 };
 
-template<typename OStream, typename String>
-OStream& operator << (OStream& out, const basic_position_string_view<String>& v)
+template<typename OStream, typename Container>
+OStream& operator << (OStream& out, const basic_position_string_view<Container>& v)
 {
-	return out << (typename basic_position_string_view<String>::std_string_view)v;
+	return out << (typename basic_position_string_view<Container>::std_string_view)v;
 }
 
 using pos_string_view = basic_position_string_view<std::pmr::string>;
+using pos_data_view = basic_position_string_view<std::pmr::vector<std::byte>>;
 
 struct header_view {
 	header_view(std::pmr::string* src) : name(src), value(src) {}

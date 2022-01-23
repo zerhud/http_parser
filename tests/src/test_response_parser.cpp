@@ -20,6 +20,7 @@ constexpr bool enable_speed_tests =
         ;
 
 BOOST_AUTO_TEST_SUITE(utils)
+BOOST_AUTO_TEST_SUITE(pos_string_view)
 using psv_t = http_utils::basic_position_string_view<std::string>;
 BOOST_AUTO_TEST_CASE(pos_sv)
 {
@@ -38,6 +39,50 @@ BOOST_AUTO_TEST_CASE(assign_to_sv)
 	BOOST_CHECK_NO_THROW((t1 = std::string_view{src.data() + 1, 1}));
 	BOOST_TEST(t1 == "e"sv);
 }
+BOOST_AUTO_TEST_CASE(methods)
+{
+	std::string src;
+	http_utils::basic_position_string_view sv(&src);
+	BOOST_TEST(sv.empty() == true);
+	BOOST_TEST(((std::string_view)sv).empty() == true);
+
+	src = "test";
+	sv.assign(1, 2);
+	BOOST_TEST(sv.back() == 's');
+	BOOST_TEST(sv.front() == 'e');
+	BOOST_TEST(sv.size() == 2);
+	sv.assign(0, 4);
+	BOOST_TEST(sv.size() == 4);
+	BOOST_TEST(sv.substr(1,2) == "es"sv);
+	BOOST_TEST(sv.substr(1,3).size() == 3);
+	BOOST_TEST(sv.substr(1,3) == "est"sv);
+	BOOST_TEST(sv.substr(1,4) == "est"sv);
+	BOOST_TEST(sv.substr(1,4).size() == 3);
+	BOOST_TEST(sv[1] == 'e');
+}
+BOOST_AUTO_TEST_CASE(creation)
+{
+	using pos_sv = http_utils::basic_position_string_view<std::string>;
+	pos_sv empty;
+	BOOST_TEST(empty.empty() == true);
+	BOOST_TEST(empty.size() == 0);
+
+	std::string src = "test";
+	pos_sv len3(&src, 0, 3);
+	BOOST_TEST(len3 == "tes"sv);
+}
+BOOST_AUTO_TEST_CASE(transformation)
+{
+	using pos_sv = http_utils::basic_position_string_view<std::vector<std::byte>>;
+	std::vector<std::byte> src;
+	src.push_back((std::byte)0x74);
+	src.push_back((std::byte)0x65);
+	src.push_back((std::byte)0x73);
+	src.push_back((std::byte)0x74);
+	pos_sv sv(&src, 0, 4);
+	BOOST_TEST(sv.as<char>() == "test"sv);
+}
+BOOST_AUTO_TEST_SUITE_END()
 BOOST_AUTO_TEST_SUITE_END() // utils
 
 
@@ -47,7 +92,8 @@ BOOST_AUTO_TEST_SUITE(responses)
 using http_utils::response_parser;
 using http_utils::response_message;
 
-BOOST_AUTO_TEST_CASE(move_message)
+BOOST_AUTO_TEST_SUITE(messages)
+BOOST_AUTO_TEST_CASE(move)
 {
 	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
 	response_message from(mem);
@@ -64,6 +110,7 @@ BOOST_AUTO_TEST_CASE(move_message)
 	from.reason = std::string_view(from.data().data()+1, 2);
 	BOOST_TEST(from.reason == "or"sv);
 }
+BOOST_AUTO_TEST_SUITE_END() // messages
 
 BOOST_AUTO_TEST_CASE(example)
 {
