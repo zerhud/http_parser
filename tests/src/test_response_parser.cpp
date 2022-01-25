@@ -53,6 +53,9 @@ BOOST_AUTO_TEST_CASE(methods)
 	BOOST_TEST(sv.size() == 2);
 	BOOST_TEST(sv.data() == &sv.front());
 	BOOST_TEST(sv.data()[0] == 'e');
+	sv.advance_to_end();
+	BOOST_TEST(sv.size() == 3);
+	BOOST_TEST(sv == "est"sv);
 	sv.assign(0, 4);
 	BOOST_TEST(sv.size() == 4);
 	BOOST_TEST(sv.substr(1,2) == "es"sv);
@@ -61,6 +64,7 @@ BOOST_AUTO_TEST_CASE(methods)
 	BOOST_TEST(sv.substr(1,4) == "est"sv);
 	BOOST_TEST(sv.substr(1,4).size() == 3);
 	BOOST_TEST(sv[1] == 'e');
+	BOOST_TEST(sv.substr(2) == "st"sv);
 }
 BOOST_AUTO_TEST_CASE(creation)
 {
@@ -91,7 +95,7 @@ BOOST_AUTO_TEST_SUITE_END() // utils
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(responses)
 
-using http_utils::response_parser;
+using response_parser = http_utils::basic_response_parser<std::pmr::string>;
 using response_message = http_utils::response_message<std::pmr::string>;
 
 BOOST_AUTO_TEST_SUITE(messages)
@@ -128,6 +132,8 @@ BOOST_AUTO_TEST_SUITE_END() // messages
 
 BOOST_AUTO_TEST_CASE(example)
 {
+	using response_parser = http_utils::basic_response_parser<std::pmr::vector<std::byte>>;
+	using response_message = http_utils::response_message<std::pmr::vector<std::byte>>;
 	std::string_view pack1 = "HTTP/1.1 200 OK\r\nConnection: KeepAlive\r\n"sv;
 	std::string_view pack2 = "Content-Length:3\r\n\r\nabc"sv;
 	std::size_t cnt=0;
