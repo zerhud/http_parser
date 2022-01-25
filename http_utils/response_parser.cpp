@@ -13,14 +13,14 @@
 using namespace std::literals;
 using http_utils::response_parser;
 
-response_parser::response_parser(std::function<void (http_utils::response_message)> cb)
+response_parser::response_parser(std::function<void (http_utils::response_message<std::pmr::string>)> cb)
     : response_parser(std::pmr::get_default_resource(), std::move(cb))
 {
 }
 
 response_parser::response_parser(
         std::pmr::memory_resource* mr,
-        std::function<void (http_utils::response_message)> cb
+        std::function<void (http_utils::response_message<std::pmr::string>)> cb
         )
     : mem(mr)
     , callback(std::move(cb))
@@ -189,8 +189,8 @@ void response_parser::exec_end()
 	assert(!parsing.empty());
 	assert(!result.data().empty());
 	std::size_t tail_size = parsing.size() - 1;
-	response_message tmp(std::move(result));
-	result = response_message(mem);
+	decltype(result) tmp(std::move(result));
+	result = decltype(result)(mem);
 	cur_pos = 0;
 	assert(tail_size <= tmp.data().size());
 	if(tail_size != 0)
@@ -198,46 +198,4 @@ void response_parser::exec_end()
 	parsing = std::string_view(result.data().data(), result.data().size());
 	to_state(state::begin);
 	callback(std::move(tmp));
-}
-
-void http_utils::response_message::move_headers(response_message& other)
-{
-	assert(headers_.empty());
-	headers_.reserve(other.headers_.size());
-	for(auto& h:other.headers_) {
-		auto& cur = headers_.emplace_back(&data_);
-		cur.name.assign(h.name);
-		cur.value.assign(h.value);
-	}
-}
-
-http_utils::response_message::response_message(std::pmr::memory_resource* mem)
-    : mem(mem)
-    , data_(mem)
-    , reason(&data_)
-    , content(&data_)
-{}
-
-http_utils::response_message::response_message(response_message&& other)
-    : mem(other.mem)
-    , data_(std::move(other.data_))
-    , headers_(mem)
-    , code(other.code)
-    , content_lenght(other.content_lenght)
-    , reason(&data_, other.reason)
-    , content(&data_, other.content)
-{
-	move_headers(other);
-}
-
-http_utils::response_message& http_utils::response_message::operator =(response_message&& other)
-{
-	mem = other.mem;
-	data_ = std::move(other.data_);
-	headers_ = decltype(headers_)(mem);
-	move_headers(other);
-	content_lenght = other.content_lenght;
-	reason.assign(&data_, other.reason);
-	content.assign(&data_, other.content);
-	return *this;
 }

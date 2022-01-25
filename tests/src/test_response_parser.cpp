@@ -92,9 +92,21 @@ BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(responses)
 
 using http_utils::response_parser;
-using http_utils::response_message;
+using response_message = http_utils::response_message<std::pmr::string>;
 
 BOOST_AUTO_TEST_SUITE(messages)
+BOOST_AUTO_TEST_CASE(headers)
+{
+	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
+	using resp_msg = http_utils::response_message<std::pmr::vector<std::byte>>;
+	resp_msg msg(mem);
+	msg.advance("h1:1\r\nh2:2\r\n");
+	std::string_view data( (const char*)msg.data().data(), 12 );
+	BOOST_TEST(data == "h1:1\r\nh2:2\r\n"sv);
+	msg.add_header_name(data.substr(0,2));
+	msg.last_header_value(data.substr(3,1));
+	BOOST_TEST(msg.find_header("h1").value() == "1"sv);
+}
 BOOST_AUTO_TEST_CASE(move)
 {
 	std::pmr::memory_resource* mem = std::pmr::get_default_resource();

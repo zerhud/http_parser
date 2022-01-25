@@ -8,6 +8,7 @@
  *************************************************************************/
 
 #include <string>
+#include <cassert>
 #include <optional>
 #include <functional>
 #include <memory_resource>
@@ -38,14 +39,16 @@ public:
 	{
 	}
 
-	basic_position_string_view& operator = (std_string_view sv)
+	template<typename T>
+	basic_position_string_view& operator = (std::basic_string_view<T> sv)
 	{
+		using vt = typename Container::value_type;
 		if(!src) throw std::runtime_error("no strign for assign");
-		if(sv.data() < src->data())
+		if((vt*)sv.data() < src->data())
 			throw std::runtime_error("no string correlation");
-		if(src->size() < sv.data() - src->data())
+		if(src->size() < (vt*)sv.data() - src->data())
 			throw std::runtime_error("no string correlation");
-		pos = sv.data() - src->data();
+		pos = (vt*)sv.data() - src->data();
 		len = sv.size();
 		return *this;
 	}
@@ -131,6 +134,15 @@ public:
 	}
 };
 
+template<typename Container, typename Char>
+inline bool operator == (basic_position_string_view<Container> l, std::basic_string_view<Char> r)
+{
+	if(l.size() != r.size()) return false;
+	for(std::size_t i=0;i<r.size();++i)
+		if(l[i] != (typename Container::value_type)r[i]) return false;
+	return true;
+}
+
 template<typename OStream, typename Container>
 OStream& operator << (OStream& out, const basic_position_string_view<Container>& v)
 {
@@ -148,30 +160,77 @@ struct header_view {
 	basic_position_string_view<Con> value;
 };
 
+template<typename Container>
 class response_message {
 	std::pmr::memory_resource* mem;
-	std::pmr::string data_;
+	Container data_;
 
-	std::pmr::vector<header_view<std::pmr::string>> headers_;
-	void move_headers(response_message& other);
+	std::pmr::vector<header_view<Container>> headers_;
+	template<typename Source>
+	inline void advance_container(Container& to, const Source& from, std::size_t size)
+	{
+		for(std::size_t i=0;i<size;++i)
+			to.push_back((typename Container::value_type)from[i]);
+	}
+	void move_headers(response_message& other)
+	{
+		assert(headers_.empty());
+		headers_.reserve(other.headers_.size());
+		for(auto& h:other.headers_) {
+			auto& cur = headers_.emplace_back(&data_);
+			cur.name.assign(h.name);
+			cur.value.assign(h.value);
+		}
+	}
 public:
-	response_message(std::pmr::memory_resource* mem);
+	using container_view = basic_position_string_view<Container>;
+	response_message(std::pmr::memory_resource* mem)
+	    : mem(mem)
+	    , data_(mem)
+	    , reason(&data_)
+	    , content(&data_)
+	{}
 
-	response_message(response_message&& other);
 	response_message(const response_message& other) =delete ;
+	response_message(response_message&& other)
+	    : mem(other.mem)
+	    , data_(std::move(other.data_))
+	    , headers_(mem)
+	    , code(other.code)
+	    , content_lenght(other.content_lenght)
+	    , reason(&data_, other.reason)
+	    , content(&data_, other.content)
+	{
+		move_headers(other);
+	}
 
-	response_message& operator = (response_message&& other);
 	response_message& operator = (const response_message& other) =delete ;
+	response_message& operator = (response_message&& other)
+	{
+		mem = other.mem;
+		data_ = std::move(other.data_);
+		headers_ = decltype(headers_)(mem);
+		move_headers(other);
+		content_lenght = other.content_lenght;
+		reason.assign(&data_, other.reason);
+		content.assign(&data_, other.content);
+		return *this;
+	}
 
-	std::pmr::string& data() { return data_; }
-	const std::pmr::string& data() const { return data_; }
+	Container& data() { return data_; }
+	const Container& data() const { return data_; }
+	template<std::size_t N>
+	void advance(const char(&chars)[N])
+	{
+		advance_container(data_, chars, N);
+	}
 
 	std::uint16_t code;
 	std::size_t content_lenght;
-	pos_string_view reason;
-	pos_string_view content;
+	container_view reason;
+	container_view content;
 
-	std::pmr::vector<header_view<std::pmr::string>> headers() const { return headers_; }
+	std::pmr::vector<header_view<Container>> headers() const { return headers_; }
 	void add_header_name(std::string_view n)
 	{
 		headers_.emplace_back(&data_).name = n;
@@ -181,12 +240,13 @@ public:
 		headers_.back().value = v;
 	}
 	bool headers_empty() const { return headers_.empty(); }
-	std::optional<std::string_view> find_header(std::string_view v)
+	std::optional<std::string_view> find_header(std::string_view v) const
 	{
+		using hv_type = header_view<Container>;
 		auto pos = std::find_if(headers_.begin(), headers_.end(),
-		                        [v](auto& hv){ return hv.name == v;});
+		                        [v](const hv_type& hv){ return hv.name == v; });
 		if(pos == headers_.end()) return std::nullopt;
-		return pos->value;
+		return pos->value.template as<std::string_view::value_type>();
 	}
 };
 
@@ -200,8 +260,8 @@ class response_parser {
 	};
 
 	std::pmr::memory_resource* mem;
-	std::function<void(response_message)> callback;
-	response_message result;
+	std::function<void(response_message<std::pmr::string>)> callback;
+	response_message<std::pmr::string> result;
 
 	state cur_state=state::begin;
 	std::size_t cur_pos;
@@ -225,8 +285,8 @@ class response_parser {
 	void pfinishing();
 	void exec_end();
 public:
-	response_parser(std::function<void(response_message)> cb);
-	response_parser(std::pmr::memory_resource* mr, std::function<void(response_message)> cb);
+	response_parser(std::function<void(response_message<std::pmr::string>)> cb);
+	response_parser(std::pmr::memory_resource* mr, std::function<void(response_message<std::pmr::string>)> cb);
 	response_parser& operator()(std::string_view data);
 };
 
