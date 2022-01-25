@@ -219,5 +219,19 @@ BOOST_DATA_TEST_CASE(content, bdata::make( {
 	p(pack1)(pack2)(pack3);
 	BOOST_TEST(cnt==2);
 }
+BOOST_AUTO_TEST_CASE(reset)
+{
+	std::size_t cnt=0;
+	auto data = "HTTP/1.1 200 OK\r\n\r\n"sv;
+	response_parser p([&cnt,data](response_message msg){
+		BOOST_TEST(msg.data() == data);
+		BOOST_TEST(msg.data().size() == data.size());
+		++cnt;
+	});
+	p("asdf"sv);
+	p.reset();
+	p(data);
+	BOOST_TEST(cnt==1);
+}
 BOOST_AUTO_TEST_SUITE_END() // responses
 BOOST_AUTO_TEST_SUITE_END() // core

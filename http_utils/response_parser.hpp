@@ -469,6 +469,11 @@ public:
 		if(cur_state == state::end) parse();
 		return *this;
 	}
+	void reset()
+	{
+		result.data().clear();
+		parsing = container_view(&result.data());
+	}
 };
 
 } // namespace http_utils
