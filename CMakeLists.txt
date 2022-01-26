@@ -3,7 +3,7 @@ set(build_number $ENV{build_number})
 if(NOT build_number)
 	set(build_number 0)
 endif()
-project(std_http_utils LANGUAGES CXX C VERSION 0.2.2.${build_number})
+project(std_http_utils LANGUAGES CXX C VERSION 0.2.3.${build_number})
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,9 +27,40 @@ file(
 source_group(TREE "${CMAKE_CURRENT_LIST_DIR}" FILES ${headers} ${sources})
 
 add_library(${PROJECT_NAME} INTERFACE ${headers} ${sources})
-target_include_directories(${PROJECT_NAME} INTERFACE "${CMAKE_CURRENT_LIST_DIR}")
+target_include_directories(${PROJECT_NAME} INTERFACE
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
+	$<INSTALL_INTERFACE:include>
+	)
 
 if(ENABLE_TESTS)
 	enable_testing()
 	add_subdirectory(tests)
 endif()
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+	"${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
+	COMPATIBILITY AnyNewerVersion
+	)
+install(
+	TARGETS ${PROJECT_NAME}
+	EXPORT ${PROJECT_NAME}-targets
+	LIBRARY DESTINATION lib COMPONENT Runtime
+	ARCHIVE DESTINATION lib COMPONENT Development
+	RUNTIME DESTINATION bin COMPONENT Runtime
+	PUBLIC_HEADER DESTINATION include COMPONENT Development
+	BUNDLE DESTINATION bin COMPONENT Runtime
+	)
+configure_package_config_file(
+	"${PROJECT_SOURCE_DIR}/cmake/config.cmake.in"
+	"${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
+	INSTALL_DESTINATION lib/cmake/${PROJECT_NAME}
+	)
+install(EXPORT ${PROJECT_NAME}-targets DESTINATION lib/cmake/${PROJECT_NAME})
+install(
+	FILES "${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake"
+	"${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config.cmake"
+	DESTINATION lib/cmake/${PROJECT_NAME}
+	)
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/http_utils/ DESTINATION include/${PROJECT_NAME})
+
