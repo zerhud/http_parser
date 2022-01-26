@@ -2,7 +2,7 @@
 #define BOOST_TEST_MODULE request_generator
 
 #include <boost/test/unit_test.hpp>
-#include <http_utils/request_generator.hpp>
+#include <http_parser/request_generator.hpp>
 
 using namespace std::literals;
 
@@ -18,10 +18,10 @@ void check_string(std::string_view result, std::string_view right)
 
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(generator)
-using request_generator = http_utils::basic_request_generator<std::pmr::string, std::string_view>;
+using request_generator = http_parser::basic_request_generator<std::pmr::string, std::string_view>;
 BOOST_AUTO_TEST_CASE(example)
 {
-	using namespace http_utils;
+	using namespace http_parser;
 	request_generator gen;
 	gen << uri("http://g.c/p/ath?a=1")
 	    << header("User-Agent", "Test")
@@ -47,9 +47,9 @@ BOOST_AUTO_TEST_CASE(example)
 }
 BOOST_AUTO_TEST_CASE(example_data_vec)
 {
-	using request_generator = http_utils::basic_request_generator<
+	using request_generator = http_parser::basic_request_generator<
 	    std::pmr::vector<std::byte>, std::string_view>;
-	using namespace http_utils;
+	using namespace http_parser;
 	request_generator gen;
 	gen << uri("http://g.c/p/ath?a=1")
 	    << header("User-Agent", "Test")
@@ -97,18 +97,18 @@ BOOST_AUTO_TEST_CASE(memory)
 BOOST_AUTO_TEST_CASE(methods)
 {
 	request_generator gen;
-	gen.method(http_utils::methods::post).uri("http://t.d");
+	gen.method(http_parser::methods::post).uri("http://t.d");
 	std::pmr::string right_body = "POST / HTTP/1.1\r\nHost:t.d\r\n\r\n";
 	BOOST_TEST(gen.body("").c_str() == right_body.c_str());
 	check_string(gen.body(""), right_body);
-	BOOST_TEST(to_string_view(http_utils::methods::get) == "GET");
-	BOOST_TEST(to_string_view(http_utils::methods::head) == "HEAD");
-	BOOST_TEST(to_string_view(http_utils::methods::post) == "POST");
-	BOOST_TEST(to_string_view(http_utils::methods::put) == "PUT");
-	BOOST_TEST(to_string_view(http_utils::methods::delete_method) == "DELETE");
-	BOOST_TEST(to_string_view(http_utils::methods::connect) == "CONNECT");
-	BOOST_TEST(to_string_view(http_utils::methods::trace) == "TRACE");
-	BOOST_TEST(to_string_view(http_utils::methods::patch) == "PATCH");
+	BOOST_TEST(to_string_view(http_parser::methods::get) == "GET");
+	BOOST_TEST(to_string_view(http_parser::methods::head) == "HEAD");
+	BOOST_TEST(to_string_view(http_parser::methods::post) == "POST");
+	BOOST_TEST(to_string_view(http_parser::methods::put) == "PUT");
+	BOOST_TEST(to_string_view(http_parser::methods::delete_method) == "DELETE");
+	BOOST_TEST(to_string_view(http_parser::methods::connect) == "CONNECT");
+	BOOST_TEST(to_string_view(http_parser::methods::trace) == "TRACE");
+	BOOST_TEST(to_string_view(http_parser::methods::patch) == "PATCH");
 }
 BOOST_AUTO_TEST_SUITE_END() // generator
 BOOST_AUTO_TEST_SUITE_END() // core

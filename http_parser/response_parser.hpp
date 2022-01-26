@@ -2,7 +2,7 @@
 
 /*************************************************************************
  * Copyright © 2022 Hudyaev Alexy <hudyaev.alexy@gmail.com>
- * This file is part of http_utils.
+ * This file is part of http_parser.
  * Distributed under the MIT License.
  * See accompanying file LICENSE (at the root of this repository)
  *************************************************************************/
@@ -14,7 +14,7 @@
 #include <functional>
 #include <memory_resource>
 
-namespace http_utils {
+namespace http_parser {
 
 template<typename Container>
 class basic_position_string_view {
@@ -504,4 +504,4 @@ public:
 	}
 };
 
-} // namespace http_utils
+} // namespace http_parser

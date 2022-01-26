@@ -5,7 +5,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/data/monomorphic.hpp>
-#include <http_utils/response_parser.hpp>
+#include <http_parser/response_parser.hpp>
 
 using namespace std::literals;
 namespace utf = boost::unit_test;
@@ -21,7 +21,7 @@ constexpr bool enable_speed_tests =
 
 BOOST_AUTO_TEST_SUITE(utils)
 BOOST_AUTO_TEST_SUITE(pos_string_view)
-using psv_t = http_utils::basic_position_string_view<std::string>;
+using psv_t = http_parser::basic_position_string_view<std::string>;
 BOOST_AUTO_TEST_CASE(pos_sv)
 {
 	std::string src = "hello";
@@ -42,7 +42,7 @@ BOOST_AUTO_TEST_CASE(assign_to_sv)
 BOOST_AUTO_TEST_CASE(methods)
 {
 	std::string src;
-	http_utils::basic_position_string_view sv(&src);
+	http_parser::basic_position_string_view sv(&src);
 	BOOST_TEST(sv.empty() == true);
 	BOOST_TEST(((std::string_view)sv).empty() == true);
 
@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(methods)
 }
 BOOST_AUTO_TEST_CASE(creation)
 {
-	using pos_sv = http_utils::basic_position_string_view<std::string>;
+	using pos_sv = http_parser::basic_position_string_view<std::string>;
 	pos_sv empty;
 	BOOST_TEST(empty.empty() == true);
 	BOOST_TEST(empty.size() == 0);
@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(creation)
 }
 BOOST_AUTO_TEST_CASE(transformation)
 {
-	using pos_sv = http_utils::basic_position_string_view<std::vector<std::byte>>;
+	using pos_sv = http_parser::basic_position_string_view<std::vector<std::byte>>;
 	std::vector<std::byte> src;
 	src.push_back((std::byte)0x74);
 	src.push_back((std::byte)0x65);
@@ -95,14 +95,14 @@ BOOST_AUTO_TEST_SUITE_END() // utils
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(responses)
 
-using response_parser = http_utils::basic_response_parser<std::pmr::string>;
-using response_message = http_utils::response_message<std::pmr::string>;
+using response_parser = http_parser::basic_response_parser<std::pmr::string>;
+using response_message = http_parser::response_message<std::pmr::string>;
 
 BOOST_AUTO_TEST_SUITE(messages)
 BOOST_AUTO_TEST_CASE(headers)
 {
 	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
-	using resp_msg = http_utils::response_message<std::pmr::vector<std::byte>>;
+	using resp_msg = http_parser::response_message<std::pmr::vector<std::byte>>;
 	resp_msg msg(mem);
 	msg.advance("h1:1\r\nh2:2\r\n");
 	std::string_view data( (const char*)msg.data().data(), 12 );
@@ -132,8 +132,8 @@ BOOST_AUTO_TEST_SUITE_END() // messages
 
 BOOST_AUTO_TEST_CASE(example)
 {
-	using response_parser = http_utils::basic_response_parser<std::pmr::vector<std::byte>>;
-	using response_message = http_utils::response_message<std::pmr::vector<std::byte>>;
+	using response_parser = http_parser::basic_response_parser<std::pmr::vector<std::byte>>;
+	using response_message = http_parser::response_message<std::pmr::vector<std::byte>>;
 	std::string_view pack1 = "HTTP/1.1 200 OK\r\nConnection: KeepAlive\r\n"sv;
 	std::string_view pack2 = "Content-Length:3\r\n\r\nabc"sv;
 	std::size_t cnt=0;
