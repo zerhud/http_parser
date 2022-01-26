@@ -290,7 +290,7 @@ private:
 	message_type result;
 
 	state cur_state=state::begin;
-	std::size_t cur_pos;
+	std::size_t cur_pos=0, garbage_pos=0;
 	typename Container::value_type cur_symbol;
 	container_view parsing;
 
@@ -333,6 +333,7 @@ private:
 		assert(cur_pos != 0);
 		parsing = parsing.substr(1);
 		cur_pos = 0;
+		++garbage_pos;
 	}
 	void pbegin()
 	{
@@ -437,12 +438,19 @@ private:
 		decltype(result) tmp(std::move(result));
 		result = decltype(result)(mem);
 		cur_pos = 0;
+		garbage_pos = 0;
 		assert(tail_size <= tmp.data().size());
 		if(tail_size != 0)
 			advance_parsing(container_view(&tmp.data()).substr(tmp.data().size() - tail_size));
 		parsing = container_view(&result.data());
 		to_state(state::begin);
 		callback(std::move(tmp));
+	}
+	void reset_parser()
+	{
+		parsing = container_view(&result.data());
+		cur_pos = 0;
+		cur_state = state::begin;
 	}
 public:
 	basic_response_parser(std::function<void(message_type)> cb)
@@ -472,7 +480,27 @@ public:
 	void reset()
 	{
 		result.data().clear();
-		parsing = container_view(&result.data());
+		garbage_pos = 0;
+		reset_parser();
+	}
+	std::size_t size() const
+	{
+		return result.data().size();
+	}
+	std::size_t gabage_index() const
+	{
+		return garbage_pos;
+	}
+	// note: all garbage leavs in messasge
+	//       and will be delete with it
+	void remove_garbage_now()
+	{
+		Container tmp;
+		tmp.swap(result.data());
+		for(std::size_t i=garbage_pos;i<tmp.size();++i)
+			result.data().push_back(tmp[i]);
+		garbage_pos = 0;
+		reset_parser();
 	}
 };
 

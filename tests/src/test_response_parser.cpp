@@ -228,9 +228,30 @@ BOOST_AUTO_TEST_CASE(reset)
 		BOOST_TEST(msg.data().size() == data.size());
 		++cnt;
 	});
-	p("asdf"sv);
+	p("asdfHTTP/1.1 "sv);
 	p.reset();
 	p(data);
+	BOOST_TEST(cnt==1);
+}
+BOOST_AUTO_TEST_CASE(garbage)
+{
+	std::size_t cnt=0;
+	auto data = "HTTP/1.1 200 OK\r\n\r\n"sv;
+	auto pack1 = data.substr(0, 12);
+	auto pack2 = data.substr(12);
+	response_parser p([&cnt,data](response_message msg){
+		BOOST_TEST(msg.data() == data);
+		BOOST_TEST(msg.data().size() == data.size());
+		++cnt;
+	});
+	p("asdf"sv);
+	p(pack1);
+	BOOST_TEST(cnt==0);
+	BOOST_TEST(p.size() == 4 + pack1.size());
+	BOOST_TEST(p.gabage_index() == 4);
+	p.remove_garbage_now();
+	BOOST_TEST(p.gabage_index() == 0);
+	p(pack2);
 	BOOST_TEST(cnt==1);
 }
 BOOST_AUTO_TEST_SUITE_END() // responses
