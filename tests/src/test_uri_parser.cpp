@@ -18,7 +18,7 @@ constexpr bool enable_speed_tests =
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(uri)
 
-using http_parser::uri_parser;
+using uri_parser = http_parser::basic_uri_parser<std::string_view>;
 
 BOOST_AUTO_TEST_CASE(example)
 {
@@ -46,7 +46,7 @@ BOOST_AUTO_TEST_CASE(speed, * utf::label("speed") * utf::enable_if<enable_speed_
 }
 BOOST_AUTO_TEST_CASE(wide)
 {
-	using http_parser::uri_wparser;
+	using uri_wparser = http_parser::basic_uri_parser<std::wstring_view>;
 	uri_wparser rb(L"https://user:pa$s@google.com:81/some/path?a=12#b");
 	BOOST_CHECK(rb.scheme() == L"https");
 	BOOST_CHECK(rb.path() == L"/some/path");

@@ -323,7 +323,4 @@ public:
 	StringView pass() const { return parsed.password; }
 };
 
-using uri_parser = basic_uri_parser<std::string_view>;
-using uri_wparser = basic_uri_parser<std::wstring_view>;
-
 } // namespace http_parser
