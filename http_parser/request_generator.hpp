@@ -72,10 +72,34 @@ class basic_request_generator {
 	}
 
 	template<typename T>
-	requires( !std::is_pointer_v<T> )
+	requires( !std::is_pointer_v<T> && !std::is_same_v<std::decay_t<T>, Container> )
 	void append(Container& con, T val) const
 	{
 		con.push_back((typename Container::value_type)val);
+	}
+
+	template<typename T>
+	requires( std::is_same_v<std::decay_t<T>, Container> )
+	void append(Container& con, const T& val) const
+	{
+		for(auto& v:val) con.push_back(v);
+	}
+
+	template< typename Src >
+	Container create_body(Src cnt) const
+	{
+		Container ret{mem};
+		for(auto& h:head) ret.push_back(h);
+		for(auto& h:headers) ret.push_back(h);
+		if(cnt.size() != 0) {
+			std::array<char, std::numeric_limits<std::size_t>::digits10 + 1> str;
+			auto [ptr, ec] = std::to_chars(str.data(), str.data() + str.size(), cnt.size());
+			assert(ec == std::errc());
+			std::string_view len(str.data(), ptr);
+			append(ret, "Content-Length:", len, "\r\n\r\n", cnt);
+		}
+		append(ret, "\r\n");
+		return ret;
 	}
 public:
 	basic_request_generator()
@@ -116,18 +140,12 @@ public:
 
 	Container body(StringView cnt) const
 	{
-		Container ret{mem};
-		for(auto& h:head) ret.push_back(h);
-		for(auto& h:headers) ret.push_back(h);
-		if(cnt.size() != 0) {
-			std::array<char, std::numeric_limits<std::size_t>::digits10 + 1> str;
-			auto [ptr, ec] = std::to_chars(str.data(), str.data() + str.size(), cnt.size());
-			assert(ec == std::errc());
-			std::string_view len(str.data(), ptr);
-			append(ret, "Content-Length:", len, "\r\n\r\n", cnt);
-		}
-		append(ret, "\r\n");
-		return ret;
+		return create_body(cnt);
+	}
+
+	Container body(Container cnt) const
+	{
+		return create_body(cnt);
 	}
 };
 

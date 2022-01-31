@@ -5,7 +5,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/test/data/test_case.hpp>
 #include <boost/test/data/monomorphic.hpp>
-#include <http_parser/response_parser.hpp>
+#include <http_parser.hpp>
 
 using namespace std::literals;
 namespace utf = boost::unit_test;

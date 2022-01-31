@@ -26,7 +26,7 @@ BOOST_AUTO_TEST_CASE(example)
 	gen << uri("http://g.c/p/ath?a=1")
 	    << header("User-Agent", "Test")
 	       ;
-	BOOST_TEST(gen.body("content") == "GET /p/ath?a=1 HTTP/1.1\r\n"
+	BOOST_TEST(gen.body("content"sv) == "GET /p/ath?a=1 HTTP/1.1\r\n"
 	                              "Host:g.c\r\n"
 	                              "User-Agent:Test\r\n"
 	                              "Content-Length:7\r\n\r\n"
@@ -34,13 +34,13 @@ BOOST_AUTO_TEST_CASE(example)
 	           );
 
 	gen.uri("http://y.d/other/path");
-	BOOST_TEST(gen.body("other") == "GET /other/path HTTP/1.1\r\n"
+	BOOST_TEST(gen.body("other"sv) == "GET /other/path HTTP/1.1\r\n"
 	                              "Host:y.d\r\n"
 	                              "User-Agent:Test\r\n"
 	                              "Content-Length:5\r\n\r\n"
 	                              "other\r\n"
 	           );
-	BOOST_TEST(gen.body("") == "GET /other/path HTTP/1.1\r\n"
+	BOOST_TEST(gen.body(""sv) == "GET /other/path HTTP/1.1\r\n"
 	                           "Host:y.d\r\n"
 	                           "User-Agent:Test\r\n\r\n"
 	           );
@@ -54,13 +54,21 @@ BOOST_AUTO_TEST_CASE(example_data_vec)
 	gen << uri("http://g.c/p/ath?a=1")
 	    << header("User-Agent", "Test")
 	       ;
-	auto result = gen.body("content");
+	auto result = gen.body("content"sv);
 	std::string_view sv_result ( (char*)result.data(), result.size() );
 	BOOST_TEST(sv_result == "GET /p/ath?a=1 HTTP/1.1\r\n"
 	                        "Host:g.c\r\n"
 	                        "User-Agent:Test\r\n"
 	                        "Content-Length:7\r\n\r\n"
 	                        "content\r\n"
+	           );
+	result = gen.body({(std::byte)0x6f,(std::byte)0x6b});
+	sv_result = std::string_view ( (char*)result.data(), result.size() );
+	BOOST_TEST(sv_result == "GET /p/ath?a=1 HTTP/1.1\r\n"
+	                        "Host:g.c\r\n"
+	                        "User-Agent:Test\r\n"
+	                        "Content-Length:2\r\n\r\n"
+	                        "ok\r\n"
 	           );
 }
 BOOST_AUTO_TEST_CASE(creation)
@@ -90,7 +98,7 @@ BOOST_AUTO_TEST_CASE(memory)
 		}
 	} mr_setter;
 
-	auto body = gen.header("User-Agent", "test").body("ok");
+	auto body = gen.header("User-Agent", "test").body("ok"sv);
 	BOOST_TEST(body.c_str() == right_body.c_str());
 	check_string(body, right_body);
 }
@@ -99,8 +107,8 @@ BOOST_AUTO_TEST_CASE(methods)
 	request_generator gen;
 	gen.method(http_parser::methods::post).uri("http://t.d");
 	std::pmr::string right_body = "POST / HTTP/1.1\r\nHost:t.d\r\n\r\n";
-	BOOST_TEST(gen.body("").c_str() == right_body.c_str());
-	check_string(gen.body(""), right_body);
+	BOOST_TEST(gen.body(""sv).c_str() == right_body.c_str());
+	check_string(gen.body(""sv), right_body);
 	BOOST_TEST(to_string_view(http_parser::methods::get) == "GET");
 	BOOST_TEST(to_string_view(http_parser::methods::head) == "HEAD");
 	BOOST_TEST(to_string_view(http_parser::methods::post) == "POST");
