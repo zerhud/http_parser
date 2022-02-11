@@ -64,4 +64,5 @@ install(
 	DESTINATION lib/cmake/${PROJECT_NAME}
 	)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/http_parser/ DESTINATION include/${PROJECT_NAME})
+install(FILES "${CMAKE_CURRENT_LIST_DIR}/${PROJECT_NAME}.hpp" DESTINATION "include")
 
