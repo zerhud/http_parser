@@ -37,9 +37,11 @@ BOOST_AUTO_TEST_CASE(example)
 }
 BOOST_AUTO_TEST_CASE(speed, * utf::label("speed") * utf::enable_if<enable_speed_tests>())
 {
+	using namespace std::literals;
+	uri_parser prs;
 	auto start = std::chrono::high_resolution_clock::now();
 	for(std::size_t i=0;i<10'000'000;++i)
-		uri_parser{"https://user:pa$s@google.com:81/some/path?a=12#b"};
+		prs.uri("https://user:pa$s@goog.com:81/some/path?a=12#b"sv);
 	auto stop = std::chrono::high_resolution_clock::now();
 	auto dur = stop - start;
 	BOOST_TEST(std::chrono::duration_cast<std::chrono::milliseconds>(dur).count() < 2000);

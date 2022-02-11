@@ -60,7 +60,7 @@ BOOST_AUTO_TEST_CASE(example_data_vec)
 	                        "Host:g.c\r\n"
 	                        "User-Agent:Test\r\n"
 	                        "Content-Length:7\r\n\r\n"
-	                        "content\r\n"
+	                        "content\r\n"sv
 	           );
 	result = gen.body({(std::byte)0x6f,(std::byte)0x6b});
 	sv_result = std::string_view ( (char*)result.data(), result.size() );
@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(example_data_vec)
 	                        "Host:g.c\r\n"
 	                        "User-Agent:Test\r\n"
 	                        "Content-Length:2\r\n\r\n"
-	                        "ok\r\n"
+	                        "ok\r\n"sv
 	           );
 }
 BOOST_AUTO_TEST_CASE(creation)

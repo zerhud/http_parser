@@ -22,11 +22,12 @@ file(
 	GLOB_RECURSE headers
 	LIST_DIRECTORIES true
 	RELATIVE "${CMAKE_CURRENT_LIST_DIR}"
-	"*.hpp"
+	"http_parser/*.hpp"
 	)
+list(APPEND headers http_parser.hpp)
 source_group(TREE "${CMAKE_CURRENT_LIST_DIR}" FILES ${headers} ${sources})
 
-add_library(${PROJECT_NAME} INTERFACE ${headers} ${sources})
+add_library(${PROJECT_NAME} INTERFACE )
 target_include_directories(${PROJECT_NAME} INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
 	$<INSTALL_INTERFACE:include>

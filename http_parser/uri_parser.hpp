@@ -24,26 +24,29 @@ class uri_parser_machine {
 		query, anchor,
 		finish };
 
+	typedef void (uri_parser_machine::*parse_fnc)();
 	typename StringView::value_type cur_symbol;
 	state cur_state = state::scheme;
 	StringView src;
 	std::size_t begin=0;
-	void parse()
+	std::array<parse_fnc,12> parse_functions;
+	void init_parser_functions()
 	{
-		switch(cur_state) {
-		case state::scheme: pscheme(); break;
-		case state::scheme_end_1: pscheme_end_1(); break;
-		case state::scheme_end_2: pscheme_end_2(); break;
-		case state::user_pwd: puser_pwd(); break;
-		case state::dog: pdog(); break;
-		case state::domain: pdomain(); break;
-		case state::port: pport(); break;
-		case state::path: ppath(); break;
-		case state::path_pos: ppath_pos(); break;
-		case state::query: pquery(); break;
-		case state::anchor: panchor(); break;
-		}
+		parse_functions[static_cast<std::size_t>(state::scheme)] = &uri_parser_machine::pscheme;
+		parse_functions[static_cast<std::size_t>(state::scheme_end_1)] = &uri_parser_machine::pscheme_end_1;
+		parse_functions[static_cast<std::size_t>(state::scheme_end_2)] = &uri_parser_machine::pscheme_end_2;
+		parse_functions[static_cast<std::size_t>(state::user_pwd)] = &uri_parser_machine::puser_pwd;
+		parse_functions[static_cast<std::size_t>(state::dog)] = &uri_parser_machine::pdog;
+		parse_functions[static_cast<std::size_t>(state::domain)] = &uri_parser_machine::pdomain;
+		parse_functions[static_cast<std::size_t>(state::port)] = &uri_parser_machine::pport;
+		parse_functions[static_cast<std::size_t>(state::path_pos)] = &uri_parser_machine::ppath_pos;
+		parse_functions[static_cast<std::size_t>(state::path)] = &uri_parser_machine::ppath;
+		parse_functions[static_cast<std::size_t>(state::query)] = &uri_parser_machine::pquery;
+		parse_functions[static_cast<std::size_t>(state::anchor)] = &uri_parser_machine::panchor;
+		parse_functions[static_cast<std::size_t>(state::finish)] = &uri_parser_machine::pfinish;
 	}
+
+	void pfinish() {}
 
 	void to_state(state s)
 	{
@@ -181,15 +184,40 @@ class uri_parser_machine {
 		path_position=0;
 	}
 public:
+	uri_parser_machine& operator = (const uri_parser_machine&) =delete ;
+	uri_parser_machine(const uri_parser_machine&) =delete ;
+
+	uri_parser_machine()
+	{
+		init_parser_functions();
+	}
+	uri_parser_machine(uri_parser_machine&& other)
+	    : cur_state(other.cur_state)
+	    , src(other.src)
+	    , begin(other.begin)
+	{
+		init_parser_functions();
+	}
+
+	uri_parser_machine& operator = (uri_parser_machine&& other)
+	{
+		cur_state = other.cur_state;
+		src = std::move(other.src);
+		begin = other.begin;
+		return *this;
+	}
+
 	uri_parser_machine& operator()(StringView uri)
 	{
 		clear_state();
 		src = uri;
 		for(begin=0;begin<src.size();++begin) {
 			cur_symbol = src[begin];
-			parse();
+			parse_fnc fnc = parse_functions[static_cast<std::size_t>(cur_state)];
+			(this->*fnc)();
 		}
-		if(cur_state != state::finish) parse();
+		if(cur_state != state::finish)
+			(this->*(parse_functions[static_cast<std::size_t>(cur_state)]))();
 		if(cur_state != state::finish)
 			throw std::runtime_error("cannot parse uri");
 		return *this;
