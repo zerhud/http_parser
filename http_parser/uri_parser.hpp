@@ -79,6 +79,7 @@ class uri_parser_machine {
 	{
 		if(!is_slash()) switch_state(state::user_pwd);
 		else {
+			user_pwd_colon_pos = StringView::npos;
 			scheme = src.substr(0, begin - 2);
 			++begin;
 			to_state(state::user_pwd);
@@ -89,25 +90,33 @@ class uri_parser_machine {
 		if(is_colon()) user_pwd_colon_pos = begin;
 		else if(is_dog()) {
 			auto up = src.substr(0, begin);
-			auto colon_pos = user_pwd_colon_pos;
-			if(colon_pos == std::string::npos) {
+			if( user_pwd_colon_pos == std::string::npos) {
 				user = up;
 			} else {
-				user = up.substr(0, colon_pos);
-				password = up.substr(colon_pos+1);
+				user = up.substr(0, user_pwd_colon_pos);
+				password = up.substr(user_pwd_colon_pos+1);
 			}
 			user_pwd_colon_pos=StringView::npos;
 			to_state(state::dog);
 		} else if(is_slash() || is_end()) {
-			begin = 0;
-			user_pwd_colon_pos=StringView::npos;
 			switch_state(state::domain);
+			pdomain();
+			user_pwd_colon_pos=StringView::npos;
 		}
 	}
 	void pdog() { if(!is_dog()) to_state(state::domain); }
 	void pdomain()
 	{
-		if(is_colon() || is_slash()) {
+		if(user_pwd_colon_pos != StringView::npos) {
+			domain = src.substr(0, user_pwd_colon_pos);
+			if(is_slash()) {
+				port = src.substr(user_pwd_colon_pos+1, begin-user_pwd_colon_pos-1);
+				to_state(state::path);
+			} else if(is_end()) {
+				port = src.substr(user_pwd_colon_pos+1);
+				to_state(state::finish);
+			}
+		} else if(is_colon() || is_slash()) {
 			domain = src.substr(0, begin);
 			to_state(is_colon() ? state::port : state::path);
 		} else if(is_end()) {
