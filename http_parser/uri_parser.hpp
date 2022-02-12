@@ -20,8 +20,7 @@ class uri_parser_machine {
 		scheme, scheme_end_1, scheme_end_2,
 		user_pwd, dog,
 		domain, port,
-		path_pos, path,
-		query, anchor,
+		path, query, anchor,
 		finish };
 
 	typedef void (uri_parser_machine::*parse_fnc)();
@@ -29,6 +28,7 @@ class uri_parser_machine {
 	state cur_state = state::scheme;
 	StringView src;
 	std::size_t begin=0;
+	std::size_t user_pwd_colon_pos = StringView::npos;
 	std::array<parse_fnc,12> parse_functions;
 	void init_parser_functions()
 	{
@@ -39,7 +39,6 @@ class uri_parser_machine {
 		parse_functions[static_cast<std::size_t>(state::dog)] = &uri_parser_machine::pdog;
 		parse_functions[static_cast<std::size_t>(state::domain)] = &uri_parser_machine::pdomain;
 		parse_functions[static_cast<std::size_t>(state::port)] = &uri_parser_machine::pport;
-		parse_functions[static_cast<std::size_t>(state::path_pos)] = &uri_parser_machine::ppath_pos;
 		parse_functions[static_cast<std::size_t>(state::path)] = &uri_parser_machine::ppath;
 		parse_functions[static_cast<std::size_t>(state::query)] = &uri_parser_machine::pquery;
 		parse_functions[static_cast<std::size_t>(state::anchor)] = &uri_parser_machine::panchor;
@@ -62,8 +61,10 @@ class uri_parser_machine {
 
 	void pscheme()
 	{
-		if(is_colon()) switch_state(state::scheme_end_1);
-		else if(!is_AZ() && !is_az()) {
+		if(is_colon()) {
+			user_pwd_colon_pos = begin;
+			switch_state(state::scheme_end_1);
+		} else if(!is_AZ() && !is_az()) {
 			if(is_slash()) {
 				begin += 2;
 				to_state(state::user_pwd);
@@ -85,18 +86,21 @@ class uri_parser_machine {
 	}
 	void puser_pwd()
 	{
-		if(is_dog()) {
+		if(is_colon()) user_pwd_colon_pos = begin;
+		else if(is_dog()) {
 			auto up = src.substr(0, begin);
-			auto colon_pos = up.find(0x3A);
+			auto colon_pos = user_pwd_colon_pos;
 			if(colon_pos == std::string::npos) {
 				user = up;
 			} else {
 				user = up.substr(0, colon_pos);
 				password = up.substr(colon_pos+1);
 			}
+			user_pwd_colon_pos=StringView::npos;
 			to_state(state::dog);
 		} else if(is_slash() || is_end()) {
 			begin = 0;
+			user_pwd_colon_pos=StringView::npos;
 			switch_state(state::domain);
 		}
 	}
@@ -105,7 +109,7 @@ class uri_parser_machine {
 	{
 		if(is_colon() || is_slash()) {
 			domain = src.substr(0, begin);
-			to_state(is_colon() ? state::port : state::path_pos);
+			to_state(is_colon() ? state::port : state::path);
 		} else if(is_end()) {
 			domain = src;
 			to_state(state::finish);
@@ -120,7 +124,7 @@ class uri_parser_machine {
 		}
 		else if(!is_digit()) {
 			port = src.substr(1, begin-1);
-			to_state(state::path_pos);
+			to_state(state::path);
 		}
 	}
 	void ppath()
@@ -132,18 +136,6 @@ class uri_parser_machine {
 			path = src.substr(0);
 			switch_state(state::finish);
 		}
-	}
-	void ppath_pos()
-	{
-		path_position =
-		        scheme.size()
-		      + (scheme.empty() ? 0 : 3)
-		      + (user.empty() ? 0 : (user.size() + 1 + password.size() + 1))
-		      + (domain.size())
-		      + (port.empty() ? 0 : port.size() + 1)
-		      ;
-		switch_state(state::path);
-		ppath();
 	}
 	void pquery()
 	{
@@ -161,15 +153,15 @@ class uri_parser_machine {
 		to_state(state::finish);
 	}
 
-	bool is_AZ() const { return 0x41 <= cur_symbol && cur_symbol <= 0x5A; }
-	bool is_az() const { return 0x61 <= cur_symbol && cur_symbol <= 0x7A; }
-	bool is_slash() const { return cur_symbol == 0x2F; }
-	bool is_colon() const { return cur_symbol == 0x3A; }
-	bool is_dog() const { return cur_symbol == 0x40; }
-	bool is_digit() const { return 0x30 <= cur_symbol && cur_symbol <= 0x39; }
-	bool is_question() const { return cur_symbol == 0x3F; }
-	bool is_number() const { return cur_symbol == 0x23; }
-	bool is_end() const { return src.size() <= begin + 1; }
+	inline bool is_AZ() const { return 0x41 <= cur_symbol && cur_symbol <= 0x5A; }
+	inline bool is_az() const { return 0x61 <= cur_symbol && cur_symbol <= 0x7A; }
+	inline bool is_slash() const { return cur_symbol == 0x2F; }
+	inline bool is_colon() const { return cur_symbol == 0x3A; }
+	inline bool is_dog() const { return cur_symbol == 0x40; }
+	inline bool is_digit() const { return 0x30 <= cur_symbol && cur_symbol <= 0x39; }
+	inline bool is_question() const { return cur_symbol == 0x3F; }
+	inline bool is_number() const { return cur_symbol == 0x23; }
+	inline bool is_end() const { return src.size() <= begin + 1; }
 	void clear_state()
 	{
 		cur_state = state::scheme;
@@ -181,30 +173,16 @@ class uri_parser_machine {
 		path = StringView{};
 		query = StringView{};
 		anchor = StringView{};
-		path_position=0;
 	}
 public:
 	uri_parser_machine& operator = (const uri_parser_machine&) =delete ;
 	uri_parser_machine(const uri_parser_machine&) =delete ;
+	uri_parser_machine& operator = (uri_parser_machine&&) =delete ;
+	uri_parser_machine(uri_parser_machine&&) =delete ;
 
 	uri_parser_machine()
 	{
 		init_parser_functions();
-	}
-	uri_parser_machine(uri_parser_machine&& other)
-	    : cur_state(other.cur_state)
-	    , src(other.src)
-	    , begin(other.begin)
-	{
-		init_parser_functions();
-	}
-
-	uri_parser_machine& operator = (uri_parser_machine&& other)
-	{
-		cur_state = other.cur_state;
-		src = std::move(other.src);
-		begin = other.begin;
-		return *this;
 	}
 
 	uri_parser_machine& operator()(StringView uri)
@@ -223,6 +201,17 @@ public:
 		return *this;
 	}
 
+	std::size_t path_pos() const
+	{
+		return path.empty() ? 0 :
+		        scheme.size()
+		      + (scheme.empty() ? 0 : 3)
+		      + (user.empty() ? 0 : (user.size() + 1 + password.size() + 1))
+		      + (domain.size())
+		      + (port.empty() ? 0 : port.size() + 1)
+		      ;
+	}
+
 	StringView scheme;
 	StringView user, password;
 	StringView domain;
@@ -230,7 +219,6 @@ public:
 	StringView path;
 	StringView query;
 	StringView anchor;
-	std::size_t path_position=0;
 };
 
 template<typename StringView>
@@ -315,7 +303,7 @@ public:
 	}
 	StringView request() const
 	{
-		std::size_t pos = parsed.path_position;
+		std::size_t pos = parsed.path_pos();
 		auto params_len = parsed.query.size();
 		std::size_t len =
 		        parsed.path.size() + params_len +

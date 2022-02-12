@@ -41,10 +41,10 @@ BOOST_AUTO_TEST_CASE(speed, * utf::label("speed") * utf::enable_if<enable_speed_
 	uri_parser prs;
 	auto start = std::chrono::high_resolution_clock::now();
 	for(std::size_t i=0;i<10'000'000;++i)
-		prs.uri("https://user:pa$s@goog.com:81/some/path?a=12#b"sv);
+		prs.uri("https://user:pa$s@google.com:81/some/path?a=12#b"sv);
 	auto stop = std::chrono::high_resolution_clock::now();
 	auto dur = stop - start;
-	BOOST_TEST(std::chrono::duration_cast<std::chrono::milliseconds>(dur).count() < 2000);
+	BOOST_TEST(std::chrono::duration_cast<std::chrono::milliseconds>(dur).count() < 1500);
 }
 BOOST_AUTO_TEST_CASE(wide)
 {
@@ -123,7 +123,7 @@ BOOST_AUTO_TEST_CASE(full_uri)
 	BOOST_TEST(p.domain == "google.com");
 	BOOST_TEST(p.port == "81");
 	BOOST_TEST(p.path == "/some/path");
-	BOOST_TEST(p.path_position == 31);
+	BOOST_TEST(p.path_pos() == 31);
 	BOOST_TEST(p.query == "a=12");
 	BOOST_TEST(p.anchor == "b");
 
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(without_path)
 	BOOST_TEST(p.domain == "google.com");
 	BOOST_TEST(p.port == "");
 	BOOST_TEST(p.path == "/");
-	BOOST_TEST(p.path_position == 10);
+	BOOST_TEST(p.path_pos() == 10);
 	BOOST_TEST(p.query == "a=12");
 	BOOST_TEST(p.anchor == "b");
 	BOOST_CHECK(p == p2("//google.com/?a=12#b"));
@@ -230,7 +230,7 @@ BOOST_AUTO_TEST_CASE(only_domain)
 	BOOST_TEST(p.domain == "google.com");
 	BOOST_TEST(p.port == "");
 	BOOST_TEST(p.path == "");
-	BOOST_TEST(p.path_position == 0);
+	BOOST_TEST(p.path_pos() == 0);
 	BOOST_TEST(p.query == "");
 	BOOST_TEST(p.anchor == "");
 	BOOST_CHECK(p == p2("//google.com"));
@@ -265,7 +265,7 @@ BOOST_AUTO_TEST_CASE(query)
 	BOOST_TEST(p.domain == "g.com");
 	BOOST_TEST(p.port == "");
 	BOOST_TEST(p.path == "/a/b");
-	BOOST_TEST(p.path_position == 12);
+	BOOST_TEST(p.path_pos() == 12);
 	BOOST_TEST(p.query == "c");
 	BOOST_TEST(p.anchor == "");
 }
@@ -279,7 +279,7 @@ BOOST_AUTO_TEST_CASE(path)
 	BOOST_TEST(p.domain == "google.com");
 	BOOST_TEST(p.port == "");
 	BOOST_TEST(p.path == "/a");
-	BOOST_TEST(p.path_position == 17);
+	BOOST_TEST(p.path_pos() == 17);
 	BOOST_TEST(p.query == "");
 	BOOST_TEST(p.anchor == "");
 }
