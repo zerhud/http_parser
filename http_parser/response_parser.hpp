@@ -7,6 +7,7 @@
  * See accompanying file LICENSE (at the root of this repository)
  *************************************************************************/
 
+#include <span>
 #include <string>
 #include <cassert>
 #include <optional>
@@ -136,6 +137,13 @@ public:
 		pos = p;
 		std::size_t ctrl = pos + l;
 		len = src->size() <= ctrl ? src->size() - pos : l;
+	}
+
+	auto span() const
+	{
+		if(!src) return std::span<const value_type>{};
+		assert( pos < src->size() && pos + len <= src->size() );
+		return std::span( src->data() + pos, len );
 	}
 
 	template<typename C>

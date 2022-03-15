@@ -31,6 +31,16 @@ BOOST_AUTO_TEST_CASE(pos_sv)
 	BOOST_TEST((std::string_view)t1 == "lo"sv);
 	BOOST_TEST((std::string_view)t_empty == ""sv);
 }
+BOOST_AUTO_TEST_CASE(span)
+{
+	std::string src = "hello";
+	psv_t t1(&src, 0, 5), t_empty;
+	auto view = t1.span();
+	BOOST_TEST(view.size(), 5);
+	BOOST_TEST(view.data() == src.data());
+	BOOST_TEST(view[1] == 'e');
+	BOOST_TEST(view[4] == 'o');
+}
 BOOST_AUTO_TEST_CASE(assign_to_sv)
 {
 	std::string src = "test";
