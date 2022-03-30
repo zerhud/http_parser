@@ -3,7 +3,7 @@ set(build_number $ENV{build_number})
 if(NOT build_number)
 	set(build_number 0)
 endif()
-project(http_parser LANGUAGES CXX C VERSION 0.2.3.${build_number})
+project(http_parser LANGUAGES CXX C VERSION 0.2.4.${build_number})
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

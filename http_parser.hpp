@@ -33,4 +33,7 @@ using pmr_vec::uri_parser;
 using pmr_vec::response_parser;
 using pmr_vec::request_generator;
 
+using pos_string_view = basic_position_string_view<std::pmr::string>;
+using pos_data_view = basic_position_string_view<std::pmr::vector<std::byte>>;
+
 } // namespace http_parser
