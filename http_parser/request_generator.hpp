@@ -46,10 +46,12 @@ header(const char*, const char*) -> header<std::string_view>;
 
 template<typename Container, typename StringView>
 class basic_request_generator {
+	enum class state_t { simple, chunked, chunked_progress };
 	std::pmr::memory_resource* mem;
 	Container headers;
 	Container head;
 	methods cur_method = methods::get;
+	mutable state_t cur_state = state_t::simple;
 
 	void append(Container& con, StringView tail) const
 	{
@@ -85,21 +87,61 @@ class basic_request_generator {
 		for(auto& v:val) con.push_back(v);
 	}
 
-	template< typename Src >
-	Container create_body(Src cnt) const
+	auto create_headers() const
 	{
 		Container ret{mem};
 		for(auto& h:head) ret.push_back(h);
 		for(auto& h:headers) ret.push_back(h);
+		return ret;
+	}
+
+	template< typename Src >
+	Container create_simple_body(Src cnt) const
+	{
+		Container ret = create_headers();
 		if(cnt.size() != 0) {
 			std::array<char, std::numeric_limits<std::size_t>::digits10 + 1> str;
 			auto [ptr, ec] = std::to_chars(str.data(), str.data() + str.size(), cnt.size());
 			assert(ec == std::errc());
 			std::string_view len(str.data(), ptr);
-			append(ret, "Content-Length:", len, "\r\n\r\n", cnt);
+			append(ret, "Content-Length: ", len, "\r\n\r\n", cnt);
 		}
 		append(ret, "\r\n");
 		return ret;
+	}
+
+	template< typename Src >
+	Container create_chunked_body(Src cnt) const
+	{
+		Container ret{ mem };
+		if(cnt.size() != 0) {
+			std::array<char, std::numeric_limits<std::size_t>::digits10 + 1> str;
+			auto [ptr, ec] = std::to_chars(str.data(), str.data() + str.size(), cnt.size());
+			assert(ec == std::errc());
+			std::string_view len(str.data(), ptr);
+			append(ret, len, "\r\n", cnt);
+		}
+		append(ret, "\r\n");
+		return ret;
+	}
+
+	template< typename Src >
+	Container create_body(Src cnt) const
+	{
+		if(cur_state == state_t::simple)
+			return create_simple_body(std::forward<Src>(cnt));
+		if(cur_state == state_t::chunked) {
+			auto ret = create_headers();
+			append(ret, create_chunked_body(std::forward<Src>(cnt)));
+			cur_state = state_t::chunked_progress;
+			return ret;
+		}
+		if(cur_state == state_t::chunked_progress && cnt.size() != 0)
+			return create_chunked_body(std::forward<Src>(cnt));
+		if(cur_state == state_t::chunked_progress && cnt.size() == 0)
+			return {};
+		assert(false);
+		throw std::logic_error("inner error (not all state supported)");
 	}
 public:
 	basic_request_generator()
@@ -126,7 +168,7 @@ public:
 		append(head, to_string_view(cur_method));
 		append(head, (typename Container::value_type)0x20); // space
 		append(head, prs.request().empty() ? prs.path() : prs.request());
-		append(head, " HTTP/1.1\r\nHost:");
+		append(head, " HTTP/1.1\r\nHost: ");
 		append(head, prs.host());
 		append(head, 0x0D, 0x0A);
 		return *this;
@@ -134,7 +176,7 @@ public:
 
 	basic_request_generator& header(StringView name, StringView val)
 	{
-		append(headers, name, 0x3A, val, 0x0D, 0x0A);
+		append(headers, name, 0x3A, 0x20, val, 0x0D, 0x0A);
 		return *this;
 	}
 
@@ -146,6 +188,19 @@ public:
 	Container body(Container cnt) const
 	{
 		return create_body(cnt);
+	}
+
+	bool chunked() const
+	{
+		return cur_state == state_t::chunked || cur_state == state_t::chunked_progress;
+	}
+
+	basic_request_generator& make_chunked()
+	{
+		if(!chunked())
+			header("Transfer-encoding", "chunked");
+		cur_state = state_t::chunked;
+		return *this;
 	}
 };
 

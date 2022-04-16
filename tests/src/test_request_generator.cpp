@@ -27,22 +27,22 @@ BOOST_AUTO_TEST_CASE(example)
 	    << header("User-Agent", "Test")
 	       ;
 	BOOST_TEST(gen.body("content"sv) == "GET /p/ath?a=1 HTTP/1.1\r\n"
-	                              "Host:g.c\r\n"
-	                              "User-Agent:Test\r\n"
-	                              "Content-Length:7\r\n\r\n"
+	                              "Host: g.c\r\n"
+	                              "User-Agent: Test\r\n"
+	                              "Content-Length: 7\r\n\r\n"
 	                              "content\r\n"
 	           );
 
 	gen.uri("http://y.d/other/path");
 	BOOST_TEST(gen.body("other"sv) == "GET /other/path HTTP/1.1\r\n"
-	                              "Host:y.d\r\n"
-	                              "User-Agent:Test\r\n"
-	                              "Content-Length:5\r\n\r\n"
+	                              "Host: y.d\r\n"
+	                              "User-Agent: Test\r\n"
+	                              "Content-Length: 5\r\n\r\n"
 	                              "other\r\n"
 	           );
 	BOOST_TEST(gen.body(""sv) == "GET /other/path HTTP/1.1\r\n"
-	                           "Host:y.d\r\n"
-	                           "User-Agent:Test\r\n\r\n"
+	                           "Host: y.d\r\n"
+	                           "User-Agent: Test\r\n\r\n"
 	           );
 }
 BOOST_AUTO_TEST_CASE(example_data_vec)
@@ -57,17 +57,17 @@ BOOST_AUTO_TEST_CASE(example_data_vec)
 	auto result = gen.body("content"sv);
 	std::string_view sv_result ( (char*)result.data(), result.size() );
 	BOOST_TEST(sv_result == "GET /p/ath?a=1 HTTP/1.1\r\n"
-	                        "Host:g.c\r\n"
-	                        "User-Agent:Test\r\n"
-	                        "Content-Length:7\r\n\r\n"
+	                        "Host: g.c\r\n"
+	                        "User-Agent: Test\r\n"
+	                        "Content-Length: 7\r\n\r\n"
 	                        "content\r\n"sv
 	           );
 	result = gen.body({(std::byte)0x6f,(std::byte)0x6b});
 	sv_result = std::string_view ( (char*)result.data(), result.size() );
 	BOOST_TEST(sv_result == "GET /p/ath?a=1 HTTP/1.1\r\n"
-	                        "Host:g.c\r\n"
-	                        "User-Agent:Test\r\n"
-	                        "Content-Length:2\r\n\r\n"
+	                        "Host: g.c\r\n"
+	                        "User-Agent: Test\r\n"
+	                        "Content-Length: 2\r\n\r\n"
 	                        "ok\r\n"sv
 	           );
 }
@@ -83,9 +83,9 @@ BOOST_AUTO_TEST_CASE(memory)
 
 	std::pmr::string right_body =
 	           "GET /other/path HTTP/1.1\r\n"
-	           "Host:y.d\r\n"
-	           "User-Agent:test\r\n"
-	           "Content-Length:2\r\n\r\n"
+	           "Host: y.d\r\n"
+	           "User-Agent: test\r\n"
+	           "Content-Length: 2\r\n\r\n"
 	           "ok\r\n"
 	            ;
 
@@ -102,11 +102,26 @@ BOOST_AUTO_TEST_CASE(memory)
 	BOOST_TEST(body.c_str() == right_body.c_str());
 	check_string(body, right_body);
 }
+BOOST_AUTO_TEST_SUITE(chunked)
+BOOST_AUTO_TEST_CASE(headers)
+{
+	using namespace http_parser;
+	request_generator gen;
+	BOOST_TEST(gen.chunked() == false);
+	gen.uri("http://g.c/p/a"sv).make_chunked();
+
+	BOOST_TEST(gen.chunked() == true);
+	BOOST_TEST(gen.body(""sv) == "GET /p/a HTTP/1.1\r\n"
+	           "Host: g.c\r\nTransfer-encoding: chunked\r\n\r\n"sv);
+	BOOST_TEST(gen.body(""sv) == ""sv);
+	BOOST_TEST(gen.body("test"sv) == "4\r\ntest\r\n"sv);
+}
+BOOST_AUTO_TEST_SUITE_END() // chunked
 BOOST_AUTO_TEST_CASE(methods)
 {
 	request_generator gen;
 	gen.method(http_parser::methods::post).uri("http://t.d");
-	std::pmr::string right_body = "POST / HTTP/1.1\r\nHost:t.d\r\n\r\n";
+	std::pmr::string right_body = "POST / HTTP/1.1\r\nHost: t.d\r\n\r\n";
 	BOOST_TEST(gen.body(""sv).c_str() == right_body.c_str());
 	check_string(gen.body(""sv), right_body);
 	BOOST_TEST(to_string_view(http_parser::methods::get) == "GET");
