@@ -19,6 +19,7 @@ void check_string(std::string_view result, std::string_view right)
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(generator)
 using request_generator = http_parser::basic_request_generator<std::pmr::string, std::string_view>;
+BOOST_AUTO_TEST_SUITE(simple)
 BOOST_AUTO_TEST_CASE(example)
 {
 	using namespace http_parser;
@@ -102,6 +103,7 @@ BOOST_AUTO_TEST_CASE(memory)
 	BOOST_TEST(body.c_str() == right_body.c_str());
 	check_string(body, right_body);
 }
+BOOST_AUTO_TEST_SUITE_END() // simple
 BOOST_AUTO_TEST_SUITE(chunked)
 BOOST_AUTO_TEST_CASE(headers)
 {
