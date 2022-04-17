@@ -105,7 +105,6 @@ BOOST_AUTO_TEST_CASE(memory)
 BOOST_AUTO_TEST_SUITE(chunked)
 BOOST_AUTO_TEST_CASE(headers)
 {
-	using namespace http_parser;
 	request_generator gen;
 	BOOST_TEST(gen.chunked() == false);
 	gen.uri("http://g.c/p/a"sv).make_chunked();
@@ -113,8 +112,28 @@ BOOST_AUTO_TEST_CASE(headers)
 	BOOST_TEST(gen.chunked() == true);
 	BOOST_TEST(gen.body(""sv) == "GET /p/a HTTP/1.1\r\n"
 	           "Host: g.c\r\nTransfer-encoding: chunked\r\n\r\n"sv);
-	BOOST_TEST(gen.body(""sv) == ""sv);
 	BOOST_TEST(gen.body("test"sv) == "4\r\ntest\r\n"sv);
+	BOOST_TEST(gen.body("testtesttest"sv) == "c\r\ntesttesttest\r\n"sv);
+	BOOST_TEST(gen.body(""sv) == "0\r\n\r\n"sv);
+}
+BOOST_AUTO_TEST_CASE(with_first_body)
+{
+	request_generator gen;
+	BOOST_TEST(gen.chunked() == false);
+	gen.uri("http://g.c/p/a"sv).make_chunked();
+	BOOST_TEST(gen.body("ab"sv) == "GET /p/a HTTP/1.1\r\n"
+	           "Host: g.c\r\nTransfer-encoding: chunked\r\n\r\n2\r\nab\r\n"sv);
+	BOOST_TEST(gen.body("test"sv) == "4\r\ntest\r\n"sv);
+}
+BOOST_AUTO_TEST_CASE(body_afetr_and_end)
+{
+	request_generator gen;
+	BOOST_TEST(gen.chunked() == false);
+	gen.uri("http://g.c/p/a"sv).make_chunked();
+	BOOST_TEST(gen.body(""sv) == "GET /p/a HTTP/1.1\r\n"
+	           "Host: g.c\r\nTransfer-encoding: chunked\r\n\r\n"sv);
+	BOOST_TEST(gen.body("testtesttest"sv) == "c\r\ntesttesttest\r\n"sv);
+	BOOST_TEST(gen.body(""sv) == "0\r\n\r\n"sv);
 }
 BOOST_AUTO_TEST_SUITE_END() // chunked
 BOOST_AUTO_TEST_CASE(methods)

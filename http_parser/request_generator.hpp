@@ -114,9 +114,11 @@ class basic_request_generator {
 	Container create_chunked_body(Src cnt) const
 	{
 		Container ret{ mem };
-		if(cnt.size() != 0) {
+		if(cnt.size() == 0) {
+			append(ret, "0\r\n");
+		} else {
 			std::array<char, std::numeric_limits<std::size_t>::digits10 + 1> str;
-			auto [ptr, ec] = std::to_chars(str.data(), str.data() + str.size(), cnt.size());
+			auto [ptr, ec] = std::to_chars(str.data(), str.data() + str.size(), cnt.size(), 16);
 			assert(ec == std::errc());
 			std::string_view len(str.data(), ptr);
 			append(ret, len, "\r\n", cnt);
@@ -132,14 +134,14 @@ class basic_request_generator {
 			return create_simple_body(std::forward<Src>(cnt));
 		if(cur_state == state_t::chunked) {
 			auto ret = create_headers();
-			append(ret, create_chunked_body(std::forward<Src>(cnt)));
+			if(cnt.size() !=0 )
+				append(ret, "\r\n", create_chunked_body(std::forward<Src>(cnt)));
+			else append(ret, "\r\n");
 			cur_state = state_t::chunked_progress;
 			return ret;
 		}
-		if(cur_state == state_t::chunked_progress && cnt.size() != 0)
+		if(cur_state == state_t::chunked_progress)
 			return create_chunked_body(std::forward<Src>(cnt));
-		if(cur_state == state_t::chunked_progress && cnt.size() == 0)
-			return {};
 		assert(false);
 		throw std::logic_error("inner error (not all state supported)");
 	}
