@@ -14,17 +14,10 @@
 #include <functional>
 #include <memory_resource>
 
+#include "message.hpp"
 #include "pos_string_view.hpp"
 
 namespace http_parser {
-
-template<typename Con>
-struct header_view {
-	header_view(Con* src) : name(src), value(src) {}
-
-	basic_position_string_view<Con> name;
-	basic_position_string_view<Con> value;
-};
 
 template<typename Container>
 class response_message {

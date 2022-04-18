@@ -156,4 +156,3 @@ BOOST_AUTO_TEST_CASE(methods)
 }
 BOOST_AUTO_TEST_SUITE_END() // generator
 BOOST_AUTO_TEST_SUITE_END() // core
-
