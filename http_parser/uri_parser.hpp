@@ -17,7 +17,7 @@ namespace http_parser {
 template<typename StringView>
 class uri_parser_machine {
 	enum class state {
-		scheme, scheme_end_1, scheme_end_2,
+		scheme, only_path, scheme_end_1, scheme_end_2,
 		user_pwd, dog,
 		domain, port,
 		path, query, anchor,
@@ -33,6 +33,7 @@ class uri_parser_machine {
 	void init_parser_functions()
 	{
 		parse_functions[static_cast<std::size_t>(state::scheme)] = &uri_parser_machine::pscheme;
+		parse_functions[static_cast<std::size_t>(state::only_path)] = &uri_parser_machine::ponly_path;
 		parse_functions[static_cast<std::size_t>(state::scheme_end_1)] = &uri_parser_machine::pscheme_end_1;
 		parse_functions[static_cast<std::size_t>(state::scheme_end_2)] = &uri_parser_machine::pscheme_end_2;
 		parse_functions[static_cast<std::size_t>(state::user_pwd)] = &uri_parser_machine::puser_pwd;
@@ -66,14 +67,25 @@ class uri_parser_machine {
 			switch_state(state::scheme_end_1);
 		} else if(!is_AZ() && !is_az()) {
 			if(is_slash()) {
-				begin += 2;
-				to_state(state::user_pwd);
+				if(begin==0) switch_state(state::only_path);
+				else {
+					begin += 2;
+					to_state(state::user_pwd);
+				}
 			} else {
 				switch_state(state::user_pwd);
 			}
 		}
 	}
 
+	void ponly_path()
+	{
+		if(!is_slash()) switch_state(state::path);
+		else {
+			++begin;
+			to_state(state::user_pwd);
+		}
+	}
 	void pscheme_end_1() { switch_state( is_slash() ? state::scheme_end_2 : state::user_pwd ); }
 	void pscheme_end_2()
 	{
@@ -198,6 +210,7 @@ public:
 	{
 		clear_state();
 		src = uri;
+		if(src.empty()) return *this;
 		for(begin=0;begin<src.size();++begin) {
 			cur_symbol = src[begin];
 			parse_fnc fnc = parse_functions[static_cast<std::size_t>(cur_state)];

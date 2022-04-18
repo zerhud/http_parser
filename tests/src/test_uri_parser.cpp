@@ -283,10 +283,34 @@ BOOST_AUTO_TEST_CASE(path)
 	BOOST_TEST(p.query == "");
 	BOOST_TEST(p.anchor == "");
 }
+BOOST_AUTO_TEST_CASE(only_path)
+{
+	uri_parser p;
+	p("/a/b/c?a=b&c=1&d");
+	BOOST_TEST(p.scheme == "");
+	BOOST_TEST(p.user == "");
+	BOOST_TEST(p.password == "");
+	BOOST_TEST(p.domain == "");
+	BOOST_TEST(p.port == "");
+	BOOST_TEST(p.path == "/a/b/c");
+	BOOST_TEST(p.path_pos() == 0);
+	BOOST_TEST(p.query == "a=b&c=1&d");
+	BOOST_TEST(p.anchor == "");
+}
 BOOST_AUTO_TEST_CASE(wrong)
 {
 	uri_parser p;
 	BOOST_CHECK_THROW(p("http:/"), std::exception);
+	p("");
+	BOOST_TEST(p.scheme == "");
+	BOOST_TEST(p.user == "");
+	BOOST_TEST(p.password == "");
+	BOOST_TEST(p.domain == "");
+	BOOST_TEST(p.port == "");
+	BOOST_TEST(p.path == "");
+	BOOST_TEST(p.path_pos() == 0);
+	BOOST_TEST(p.query == "");
+	BOOST_TEST(p.anchor == "");
 }
 BOOST_AUTO_TEST_SUITE_END() // parser
 BOOST_AUTO_TEST_SUITE_END() // uri
