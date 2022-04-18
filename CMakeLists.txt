@@ -27,7 +27,7 @@ file(
 list(APPEND headers http_parser.hpp)
 source_group(TREE "${CMAKE_CURRENT_LIST_DIR}" FILES ${headers} ${sources})
 
-add_library(${PROJECT_NAME} INTERFACE )
+add_library(${PROJECT_NAME} INTERFACE  ${headers})
 target_include_directories(${PROJECT_NAME} INTERFACE
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}>
 	$<INSTALL_INTERFACE:include>
