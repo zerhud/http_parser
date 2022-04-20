@@ -101,7 +101,7 @@ class basic_request_generator {
 		Container ret = create_headers();
 		if(cnt.size() != 0) {
 			std::array<char, std::numeric_limits<std::size_t>::digits10 + 1> str;
-			auto [ptr, ec] = std::to_chars(str.data(), str.data() + str.size(), cnt.size());
+			auto [ptr, ec] = std::to_chars(str.data(), str.data() + str.size(), cnt.size(), 10);
 			assert(ec == std::errc());
 			std::string_view len(str.data(), ptr);
 			append(ret, "Content-Length: ", len, "\r\n\r\n", cnt);

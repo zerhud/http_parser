@@ -15,7 +15,7 @@ namespace http_parser {
 
 template<typename Con>
 struct header_view {
-	header_view(Con* src) : name(src, 0, 0), value(src, 0, 0) {}
+	header_view(const Con* src) : name(src, 0, 0), value(src, 0, 0) {}
 
 	basic_position_string_view<Con> name;
 	basic_position_string_view<Con> value;
@@ -27,11 +27,11 @@ public:
 	using headers_container = Container<header_view<DataContainer>>;
 	using pos_view = basic_position_string_view<DataContainer>;
 private:
-	DataContainer* data_;
+	const DataContainer* data_;
 	headers_container headers_;
 public:
 	template<typename ... Args>
-	header_message(DataContainer* d, Args... args)
+	header_message(const DataContainer* d, Args... args)
 	    : data_(d)
 	    , headers_(std::forward<Args>(args)...)
 	{}
@@ -53,7 +53,6 @@ public:
 		auto pos = std::find_if(headers_.begin(), headers_.end(),
 		                        [v](const hv_type& hv){ return hv.name == v; });
 		return pos == headers_.end() ? std::nullopt : std::make_optional(pos->value);
-//		return std::make_optional(pos->value.template as<std::string_view::value_type>());
 	}
 };
 

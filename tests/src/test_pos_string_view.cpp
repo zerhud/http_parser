@@ -41,6 +41,7 @@ BOOST_AUTO_TEST_CASE(methods)
 {
 	std::string src;
 	http_parser::basic_position_string_view sv(&src);
+	BOOST_TEST( sv.underlying_container() == &src );
 	BOOST_TEST(sv.empty() == true);
 	BOOST_TEST(((std::string_view)sv).empty() == true);
 

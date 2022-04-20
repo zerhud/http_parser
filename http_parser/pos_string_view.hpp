@@ -59,9 +59,11 @@ public:
 		return *this;
 	}
 
+	const Container* underlying_container() const { return src; }
+
 	bool empty() const { return len == 0; }
 
-	std::size_t const size() { return len; }
+	std::size_t size() const { return len; }
 
 	void advance_to_end() { assert(src); len = src->size() - pos; }
 
