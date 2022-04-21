@@ -7,6 +7,31 @@
 
 using namespace std::literals;
 
+BOOST_AUTO_TEST_SUITE(utils)
+BOOST_AUTO_TEST_SUITE(fast_find)
+BOOST_AUTO_TEST_CASE(simple)
+{
+	std::string data = "abc:abc:";
+	auto pos = http_parser::find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
+	BOOST_TEST(pos == 3);
+
+	data = "1234567:";
+	pos = http_parser::find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
+	BOOST_TEST(pos == 7);
+
+	data = "12345678:";
+	pos = http_parser::find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
+	BOOST_TEST(pos == 8);
+}
+BOOST_AUTO_TEST_CASE(over)
+{
+	std::string data = "123456789:";
+	auto pos = http_parser::find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
+	BOOST_TEST(pos == 9);
+}
+BOOST_AUTO_TEST_SUITE_END() // fast_find
+BOOST_AUTO_TEST_SUITE_END() // utils
+
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(http1_parsers)
 BOOST_AUTO_TEST_SUITE(headers)
@@ -75,6 +100,18 @@ BOOST_AUTO_TEST_CASE(single)
 	auto res = prs.extract_result();
 	BOOST_TEST_REQUIRE(res.headers().size() == 1);
 	BOOST_TEST(res.find_header("name").value() == "value"sv);
+}
+BOOST_AUTO_TEST_CASE(speed)
+{
+	std::string data = "name:value\r\nname: value\r\n\r\n";
+	http_parser::basic_position_string_view view(&data);
+	auto start = std::chrono::high_resolution_clock::now();
+	for(std::size_t i=0;i<10'000'000;++i) {
+		http_parser::headers_parser<std::string, std::vector> prs(view);
+		prs();
+	}
+	auto end = std::chrono::high_resolution_clock::now();
+	BOOST_TEST(std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() < 2'000);
 }
 BOOST_AUTO_TEST_SUITE_END() // headers
 BOOST_AUTO_TEST_SUITE_END() // http1_parsers
