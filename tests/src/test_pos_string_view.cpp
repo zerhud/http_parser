@@ -2,7 +2,7 @@
 #define BOOST_TEST_MODULE pos_string_view
 
 #include <boost/test/unit_test.hpp>
-#include <http_parser/pos_string_view.hpp>
+#include <http_parser/utils/pos_string_view.hpp>
 
 using namespace std::literals;
 namespace utf = boost::unit_test;

@@ -171,8 +171,7 @@ BOOST_AUTO_TEST_CASE(speed, * utf::enable_if<enable_speed_tests>())
 	std::string data = "name:value\r\nname: value\r\n\r\n";
 	http_parser::basic_position_string_view view(&data);
 	auto start = std::chrono::high_resolution_clock::now();
-//	for(std::size_t i=0;i<10'000'000;++i) {
-	for(std::size_t i=0;i<10;++i) {
+	for(std::size_t i=0;i<10'000'000;++i) {
 		http_parser::headers_parser<std::string, std::vector> prs(view);
 		prs();
 	}
