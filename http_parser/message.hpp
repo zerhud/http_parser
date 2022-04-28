@@ -63,11 +63,11 @@ public:
 	using inner_string_view = typename container_view::std_string_view;
 	using url_view = basic_uri_parser<inner_string_view>;
 private:
-	DataContainer* data_;
+	const DataContainer* data_;
 	container_view method_;
 	url_view url_;
 public:
-	req_head_message(DataContainer* d) : data_(d), method_(data_, 0, 0) {}
+	req_head_message(const DataContainer* d) : data_(d), method_(data_, 0, 0) {}
 
 	const url_view& url() const  { return url_; }
 	auto& url(std::size_t pos, std::size_t size)
@@ -88,7 +88,7 @@ public:
 
 template<typename DataContainer>
 struct resp_head_message {
-	resp_head_message(std::uint16_t c, DataContainer* d, std::size_t pos, std::size_t size)
+	resp_head_message(std::uint16_t c, const DataContainer* d, std::size_t pos, std::size_t size)
 	    : code(c)
 	    , reason(d, pos, size)
 	{}

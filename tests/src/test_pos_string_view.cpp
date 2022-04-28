@@ -87,6 +87,18 @@ BOOST_AUTO_TEST_CASE(transformation)
 	pos_sv sv(&src, 0, 4);
 	BOOST_TEST(sv.as<char>() == "test"sv);
 }
+BOOST_AUTO_TEST_CASE(reset)
+{
+	auto data = "abc"s;
+	psv_t view(&data);
+	BOOST_TEST( view == "abc"sv );
+
+	data += "efg"s;
+	BOOST_TEST( view == "abc"sv );
+
+	view.reset();
+	BOOST_TEST( view == "abcefg"sv );
+}
 BOOST_AUTO_TEST_SUITE_END() // pos_string_view
 BOOST_AUTO_TEST_SUITE_END() // utils
 

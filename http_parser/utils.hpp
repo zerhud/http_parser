@@ -9,7 +9,16 @@
 
 #include <iterator>
 
-namespace http_utils {
+namespace http_parser {
+
+template<typename StringView>
+inline std::int64_t to_int(StringView src)
+{
+	std::int64_t ret = 0;
+	for(std::size_t i=0;i<src.size();++i)
+		ret = ret * 10 + (int(src[i]) - 48);
+	return ret;
+}
 
 template<typename C>
 bool is_url_allowed_symbol(C c)
@@ -35,5 +44,5 @@ void format_from_url(String& to, View from)
 {
 }
 
-} // namespace http_utils
+} // namespace http_parser
 

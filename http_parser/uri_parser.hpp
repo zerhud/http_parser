@@ -10,12 +10,14 @@
 #include <cassert>
 #include <optional>
 #include <memory_resource>
+#include "utils.hpp"
 
 namespace http_parser {
 
 
 template<typename StringView>
 class uri_parser_machine {
+	using char_t = StringView::value_type;
 	enum class state {
 		scheme, only_path, scheme_end_1, scheme_end_2,
 		user_pwd, dog,
@@ -174,14 +176,14 @@ class uri_parser_machine {
 		to_state(state::finish);
 	}
 
-	inline bool is_AZ() const { return 0x41 <= cur_symbol && cur_symbol <= 0x5A; }
-	inline bool is_az() const { return 0x61 <= cur_symbol && cur_symbol <= 0x7A; }
-	inline bool is_slash() const { return cur_symbol == 0x2F; }
-	inline bool is_colon() const { return cur_symbol == 0x3A; }
-	inline bool is_dog() const { return cur_symbol == 0x40; }
-	inline bool is_digit() const { return 0x30 <= cur_symbol && cur_symbol <= 0x39; }
-	inline bool is_question() const { return cur_symbol == 0x3F; }
-	inline bool is_number() const { return cur_symbol == 0x23; }
+	inline bool is_AZ() const { return (char_t)0x41 <= cur_symbol && cur_symbol <= (char_t)0x5A; }
+	inline bool is_az() const { return (char_t)0x61 <= cur_symbol && cur_symbol <= (char_t)0x7A; }
+	inline bool is_slash() const { return cur_symbol == (char_t)0x2F; }
+	inline bool is_colon() const { return cur_symbol == (char_t)0x3A; }
+	inline bool is_dog() const { return cur_symbol == (char_t)0x40; }
+	inline bool is_digit() const { return (char_t)0x30 <= cur_symbol && cur_symbol <= (char_t)0x39; }
+	inline bool is_question() const { return cur_symbol == (char_t)0x3F; }
+	inline bool is_number() const { return cur_symbol == (char_t)0x23; }
 	inline bool is_end() const { return src.size() <= begin + 1; }
 	void clear_state()
 	{
@@ -277,18 +279,17 @@ class basic_uri_parser final {
 		return true;
 	}
 
-	static std::int64_t to_int(StringView src)
-	{
-		std::int64_t ret = 0;
-		for(std::size_t i=0;i<src.size();++i)
-			ret = ret * 10 + (int(src[i]) - 48);
-		return ret;
-	}
-
-
 	StringView source;
 	uri_parser_machine<StringView> parsed;
 public:
+	basic_uri_parser(const basic_uri_parser& other) : source(other.source) { recalculate(); }
+	basic_uri_parser& operator = (const basic_uri_parser& other)
+	{
+		source = other.source;
+		recalculate();
+		return *this;
+	 }
+
 	basic_uri_parser() =default ;
 	basic_uri_parser(StringView url)
 	    : source(url)

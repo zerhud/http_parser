@@ -67,14 +67,14 @@ public:
 
 	void advance_to_end() { assert(src); len = src->size() - pos; }
 
-	basic_position_string_view<Container> substr(std::size_t p)
+	basic_position_string_view<Container> substr(std::size_t p) const
 	{
 		basic_position_string_view<Container> ret(src);
 		ret.pos = this->pos + p;
 		ret.advance_to_end();
 		return ret;
 	}
-	basic_position_string_view<Container> substr(std::size_t p, std::size_t l)
+	basic_position_string_view<Container> substr(std::size_t p, std::size_t l) const
 	{
 		basic_position_string_view<Container> ret(src);
 		ret.pos = this->pos + p;
@@ -104,6 +104,12 @@ public:
 		assert(src != nullptr);
 		assert(pos < src->size());
 		return src->data() + pos;
+	}
+
+	void reset()
+	{
+		pos = 0;
+		len = src->size();
 	}
 
 	void assign(const Container* s, const basic_position_string_view& other)

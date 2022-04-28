@@ -4,8 +4,18 @@
 #include <chrono>
 #include <boost/test/unit_test.hpp>
 #include <http_parser/utils/headers_parser.hpp>
+#include <http_parser/utils/http1_head_parsers.hpp>
 
 using namespace std::literals;
+namespace utf = boost::unit_test_framework;
+
+constexpr bool enable_speed_tests =
+        #ifdef  ENABLE_SPEED_TESTS
+        true
+        #else
+        false
+        #endif
+        ;
 
 BOOST_AUTO_TEST_SUITE(utils)
 BOOST_AUTO_TEST_SUITE(fast_find)
@@ -34,6 +44,61 @@ BOOST_AUTO_TEST_SUITE_END() // utils
 
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(http1_parsers)
+BOOST_AUTO_TEST_SUITE(heads)
+BOOST_AUTO_TEST_CASE(sates)
+{
+	std::string data;
+	http_parser::basic_position_string_view view{&data};
+	http_parser::http1_request_head_parser prs(view);
+
+	data = "HTTP/1.1 200 OK\r\n";
+	BOOST_TEST( prs() == http_parser::http1_head_state::http1_resp );
+
+	data = "GET /path HTTP/1.1\r";
+	BOOST_TEST( prs() == http_parser::http1_head_state::wait );
+
+	data += "\n";
+	BOOST_TEST( prs() == http_parser::http1_head_state::http1_req );
+}
+BOOST_AUTO_TEST_CASE(request_message)
+{
+	std::string data = "GET /path HTTP/1.1\r\n"s;
+	http_parser::basic_position_string_view view{&data};
+	http_parser::http1_request_head_parser prs(view);
+	prs();
+	BOOST_TEST(prs.req_msg().method() == "GET"sv);
+	BOOST_TEST(prs.req_msg().url().uri() == "/path"sv);
+}
+BOOST_AUTO_TEST_CASE(response_message)
+{
+	std::string data = "HTTP/1.1 200 OK OK\r\n"s;
+	http_parser::basic_position_string_view view{&data};
+	http_parser::http1_request_head_parser prs(view);
+	prs();
+	BOOST_TEST(prs.resp_msg().code == 200);
+	BOOST_TEST(prs.resp_msg().reason == "OK OK"sv);
+}
+BOOST_AUTO_TEST_CASE(max_len)
+{
+	std::string data = "12345678912345678900"s;
+	BOOST_TEST_REQUIRE(data.size() == 20);
+	http_parser::basic_position_string_view view{&data};
+	http_parser::http1_request_head_parser<std::string, 19> prs(view);
+	BOOST_TEST(prs() == http_parser::http1_head_state::garbage);
+}
+BOOST_AUTO_TEST_CASE(containers)
+{
+	std::vector<std::byte> data;
+	std::string str_data = "HTTP/1.1 200 OK OK\r\n"s;
+	for(auto& c:str_data) data.emplace_back((std::byte)c);
+
+	http_parser::basic_position_string_view view{&data};
+	http_parser::http1_request_head_parser prs(view);
+	prs();
+	BOOST_TEST(prs.resp_msg().code == 200);
+	BOOST_TEST(prs.resp_msg().reason == "OK OK"sv);
+}
+BOOST_AUTO_TEST_SUITE_END() // heads
 BOOST_AUTO_TEST_SUITE(headers)
 BOOST_AUTO_TEST_CASE(common)
 {
@@ -101,12 +166,13 @@ BOOST_AUTO_TEST_CASE(single)
 	BOOST_TEST_REQUIRE(res.headers().size() == 1);
 	BOOST_TEST(res.find_header("name").value() == "value"sv);
 }
-BOOST_AUTO_TEST_CASE(speed)
+BOOST_AUTO_TEST_CASE(speed, * utf::enable_if<enable_speed_tests>())
 {
 	std::string data = "name:value\r\nname: value\r\n\r\n";
 	http_parser::basic_position_string_view view(&data);
 	auto start = std::chrono::high_resolution_clock::now();
-	for(std::size_t i=0;i<10'000'000;++i) {
+//	for(std::size_t i=0;i<10'000'000;++i) {
+	for(std::size_t i=0;i<10;++i) {
 		http_parser::headers_parser<std::string, std::vector> prs(view);
 		prs();
 	}
