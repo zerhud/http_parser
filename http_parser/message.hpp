@@ -97,4 +97,22 @@ struct resp_head_message {
 	basic_position_string_view<DataContainer> reason;
 };
 
+template<template<class> class Container, typename DataContainer>
+class request_message {
+	const DataContainer* data;
+	req_head_message<DataContainer> head_;
+	header_message<Container, DataContainer> headers_;
+public:
+	request_message(const DataContainer* d)
+	    : data(d)
+	    , head_(d)
+	    , headers_(d)
+	{}
+
+	req_head_message<DataContainer>& head() { return head_; }
+	const req_head_message<DataContainer>& head() const { return head_; }
+
+	const header_message<Container, DataContainer>& headers() const { return headers_; }
+};
+
 } // namespace http_parser

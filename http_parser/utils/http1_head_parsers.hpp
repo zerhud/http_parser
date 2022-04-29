@@ -8,7 +8,6 @@
  *************************************************************************/
 
 #include <optional>
-#include <variant>
 
 #include "pos_string_view.hpp"
 #include "../utils.hpp"

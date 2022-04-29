@@ -7,6 +7,10 @@
  * See accompanying file LICENSE (at the root of this repository)
  *************************************************************************/
 
+#include <variant>
+#include "message.hpp"
+#include "utils/http1_head_parsers.hpp"
+
 namespace http_parser {
 
 template<typename DataContainer>
@@ -23,12 +27,15 @@ template<
 class acceptor final {
 public:
 	using traits_type = acceptor_traits<DataContainer>;
+	using request_head = req_head_message<DataContainer>;
+	using response_head = resp_head_message<DataContainer>;
 private:
 	traits_type* traits;
 	enum state_t { start, wait, http1, http2, websocket };
 
 	state_t cur_state = state_t::start;
 	DataContainer data;
+	std::variant<request_head, response_head> result_head;
 
 	void create_container()
 	{
@@ -39,12 +46,21 @@ private:
 
 	void determine()
 	{
-		;
+		assert(traits);
+		basic_position_string_view view(&data);
+		http1_request_head_parser prs(view);
+		auto st = prs();
+		if(st == http1_head_state::http1_resp) {
+			cur_state = state_t::http1;
+			result_head = prs.resp_msg();
+			traits->on_http1_response();
+		}
 	}
 public:
 	acceptor(traits_type* traits)
 	    : traits(traits)
 	    , data(traits->create_data_container())
+	    , result_head(request_head{&data})
 	{}
 
 	template<typename S>
