@@ -48,8 +48,8 @@ BOOST_AUTO_TEST_CASE(creating)
 	std::string data = "H: 1\r\nH2: 2";
 	auto* mem = std::pmr::get_default_resource();
 	header_message<std::pmr::vector, std::string> msg(&data, mem);
-	BOOST_CHECK_NO_THROW( msg.add_header_name(std::string_view{data.data(), 1}) );
-	BOOST_CHECK_NO_THROW( msg.last_header_value(std::string_view{data.data()+3, 1}) );
+	BOOST_CHECK_NO_THROW( msg.add_header_name(0, 1) );
+	BOOST_CHECK_NO_THROW( msg.last_header_value(3, 1) );
 	BOOST_TEST( msg.find_header("H").value() == "1"sv );
 }
 BOOST_AUTO_TEST_CASE(empty)
@@ -72,22 +72,24 @@ BOOST_AUTO_TEST_CASE(container)
 }
 BOOST_AUTO_TEST_CASE(search)
 {
-	std::string data = "H: 1\r\nH2: 2";
+	std::string str_data = "H: 1\r\nH2: 2";
+	std::pmr::vector<std::byte> data;
+	for(auto& s:str_data) data.emplace_back((std::byte)s);
 	auto* mem = std::pmr::get_default_resource();
-	header_message<std::pmr::vector, std::string> msg(&data, mem);
+	header_message<std::pmr::vector, std::pmr::vector<std::byte>> msg(&data, mem);
 
-	BOOST_CHECK_NO_THROW( msg.add_header_name(std::string_view{data.data(), 1}) );
+	BOOST_CHECK_NO_THROW( msg.add_header_name(0, 1) );
 	BOOST_TEST(msg.empty() == false);
 	BOOST_TEST( msg.headers().size() == 1 );
 	BOOST_TEST( msg.find_header("H").value() == ""sv );
 
-	BOOST_CHECK_NO_THROW( msg.last_header_value(std::string_view{data.data()+3, 1}) );
+	BOOST_CHECK_NO_THROW( msg.last_header_value(3, 1) );
 	BOOST_TEST( msg.find_header("H").value() == "1"sv );
 
 	BOOST_TEST( msg.headers().at(0).name == "H"sv );
 	BOOST_TEST( msg.headers().at(0).value == "1"sv );
 
-	BOOST_CHECK_NO_THROW( msg.add_header_name(std::string_view{data.data()+6, 2}) );
+	BOOST_CHECK_NO_THROW( msg.add_header_name(6, 2) );
 	BOOST_TEST_REQUIRE( msg.headers().size() == 2 );
 	BOOST_TEST( msg.headers().at(1).name == "H2"sv );
 }

@@ -37,13 +37,13 @@ public:
 	{}
 
 	headers_container headers() const { return headers_; }
-	void add_header_name(std::string_view n)
+	void add_header_name(std::size_t pos, std::size_t size)
 	{
-		headers_.emplace_back(data_).name = n;
+		headers_.emplace_back(data_).name.assign(pos, size);
 	}
-	void last_header_value(std::string_view v)
+	void last_header_value(std::size_t pos, std::size_t size)
 	{
-		headers_.back().value = v;
+		headers_.back().value.assign(pos, size);
 	}
 
 	bool empty() const { return headers_.empty(); }

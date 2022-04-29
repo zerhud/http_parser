@@ -88,7 +88,7 @@ private:
 		else {
 			auto pos = find_colon();
 			if(pos != 0) {
-				result.add_header_name(source.substr(switch_pos, pos-switch_pos));
+				result.add_header_name(switch_pos, pos-switch_pos);
 				cur_pos = pos;
 				silent_to_state(state_t::space);
 			}
@@ -105,7 +105,7 @@ private:
 	{
 		auto pos = find_r();
 		if(pos != 0) {
-			result.last_header_value(source.substr(switch_pos, pos-switch_pos));
+			result.last_header_value(switch_pos, pos-switch_pos);
 			cur_pos = pos + 2;
 			silent_to_state(state_t::name);
 		}
