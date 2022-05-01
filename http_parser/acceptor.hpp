@@ -13,29 +13,35 @@
 
 namespace http_parser {
 
-template<typename DataContainer>
+template<template<class> class Container, typename DataContainer>
 struct acceptor_traits {
 	virtual ~acceptor_traits() noexcept =default ;
+	virtual void on_http1_request(
+	        const request_message<Container, DataContainer>& header,
+	        const DataContainer& body) {}
 	virtual void on_http1_response() {}
 	virtual DataContainer create_data_container() =0 ;
 };
 
 template<
-        typename DataContainer,
-        template<class> class Container
+        template<class> class Container,
+        typename DataContainer
         >
 class acceptor final {
 public:
-	using traits_type = acceptor_traits<DataContainer>;
+	using traits_type = acceptor_traits<Container, DataContainer>;
 	using request_head = req_head_message<DataContainer>;
 	using response_head = resp_head_message<DataContainer>;
+
+	using request_message_t = request_message<Container, DataContainer>;
 private:
 	traits_type* traits;
 	enum state_t { start, wait, http1, http2, websocket };
 
 	state_t cur_state = state_t::start;
-	DataContainer data;
+	DataContainer data, body;
 	std::variant<request_head, response_head> result_head;
+	request_message<Container, DataContainer> result_request;
 
 	void create_container()
 	{
@@ -55,12 +61,19 @@ private:
 			result_head = prs.resp_msg();
 			traits->on_http1_response();
 		}
+		else if(st == http1_head_state::http1_req) {
+			cur_state = state_t::http1;
+			result_request.head() = prs.req_msg();
+			traits->on_http1_request(result_request, body);
+		}
 	}
 public:
 	acceptor(traits_type* traits)
 	    : traits(traits)
 	    , data(traits->create_data_container())
+	    , body(traits->create_data_container())
 	    , result_head(request_head{&data})
+	    , result_request(&body)
 	{}
 
 	template<typename S>
