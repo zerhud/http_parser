@@ -14,6 +14,78 @@
 
 namespace http_parser {
 
+
+template<typename Head, typename DataContainer>
+struct http1_acceptor_traits {
+	virtual ~http1_acceptor_traits () noexcept =default ;
+
+	virtual DataContainer create_data_container() =0 ;
+	virtual typename Head::headers_container create_headers_container() =0 ;
+
+	virtual void on_head(const Head& head) {}
+	virtual void on_request(const Head& head, const DataContainer& body) {}
+};
+
+template<
+        template<class> class Container,
+        typename DataContainer
+        >
+class http1_req_acceptor final {
+public:
+	using message_t = http1_message<Container, req_head_message, DataContainer>;
+	using traits_type = http1_acceptor_traits<message_t, DataContainer>;
+private:
+	enum class state_t { wait, head, headers, body };
+
+	state_t cur_state = state_t::wait;
+	traits_type* traits;
+	DataContainer data;
+	basic_position_string_view<DataContainer> head_view;
+
+	message_t result_request;
+
+	headers_parser<DataContainer, Container> parser_hrds;
+
+	void parse_head() {
+		assert(traits);
+		http1_request_head_parser prs(head_view);
+		auto st = prs();
+//		if(st == http1_head_state::wait) return;
+		if(st != http1_head_state::http1_req)
+			throw std::runtime_error("request was avait");
+		cur_state = state_t::head;
+		result_request.head() = prs.req_msg();
+		parser_hrds.skip_first_bytes(prs.end_position());
+	}
+	void parse_headers() {
+		parser_hrds();
+		if(!parser_hrds.is_finished()) return;
+		result_request.headers() = parser_hrds.extract_result();
+		cur_state = state_t::headers;
+	}
+	void headers_ready() { traits->on_head(result_request); }
+	void parse_body() {}
+public:
+	http1_req_acceptor(traits_type* traits)
+	    : traits(traits)
+	    , data(traits->create_data_container())
+	    , head_view(&data)
+	    , result_request(&data)
+	    , parser_hrds(&data, traits->create_headers_container())
+	{}
+
+	template<typename S>
+	void operator()(S&& buf) {
+		assert( cur_state <= state_t::body );
+		for(auto& s:buf) data.push_back((typename DataContainer::value_type) s);
+		if(cur_state == state_t::wait) parse_head();
+		if(cur_state == state_t::head) parse_headers();
+		if(cur_state == state_t::headers) headers_ready();
+		if(cur_state == state_t::body) parse_body();
+	}
+};
+
+
 template<template<class> class Container, typename DataContainer>
 struct acceptor_traits {
 	virtual ~acceptor_traits() noexcept =default ;
@@ -45,9 +117,6 @@ private:
 
 	std::variant<request_head, response_head> result_head;
 	http1_message_t result_request;
-	header_message headers;
-
-	headers_parser<DataContainer, Container> parser_headers;
 
 	void create_container()
 	{
@@ -80,8 +149,6 @@ private:
 
 	void parse_headers()
 	{
-		parser_headers();
-		if(parser_headers.is_finished())
 	}
 public:
 	acceptor(traits_type* traits)
@@ -98,7 +165,6 @@ public:
 		create_container();
 		for(auto& s:buf) { data.push_back((typename DataContainer::value_type) s); }
 		if(cur_state == state_t::wait) determine();
-		if(state_t::wait < cur_state) parser_headers();
 	}
 };
 

@@ -100,9 +100,13 @@ struct resp_head_message {
 
 template<template<class> class Container, template<class> class Head, typename DataContainer>
 class http1_message {
+public:
+	using header_message_t = header_message<Container, DataContainer>;
+	using headers_container = header_message_t::headers_container;
+private:
 	const DataContainer* data;
 	Head<DataContainer> head_;
-	header_message<Container, DataContainer> headers_;
+	header_message_t headers_;
 public:
 	http1_message(const DataContainer* d)
 	    : data(d)
@@ -113,7 +117,8 @@ public:
 	Head<DataContainer>& head() { return head_; }
 	const Head<DataContainer>& head() const { return head_; }
 
-	const header_message<Container, DataContainer>& headers() const { return headers_; }
+	header_message_t& headers() { return headers_; }
+	const header_message_t& headers() const { return headers_; }
 
 	auto find_header(std::string_view v) const
 	{

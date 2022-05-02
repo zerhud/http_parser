@@ -10,54 +10,49 @@ using namespace std::literals;
 
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(acceptor)
+BOOST_AUTO_TEST_SUITE(request)
+using acceptor_t = http_parser::http1_req_acceptor<std::pmr::vector, std::pmr::string>;
+using http1_msg_t = acceptor_t::message_t;
+struct test_acceptor : acceptor_t::traits_type {
+	std::size_t count = 0;
+	std::size_t head_count = 0;
+	std::size_t data_created_count = 0;
+	std::size_t headers_created_count = 0;
+	std::function<void(const http1_msg_t& req_head_message)> head_check;
+	std::function<void(const http1_msg_t& req_head_message, const std::pmr::string& body)> check;
 
-using http_acceptor = http_parser::acceptor<std::pmr::vector, std::pmr::string>;
-using http1_msg_t = http_acceptor::http1_message_t;
-
-struct test_acceptor : http_acceptor::traits_type {
-	std::size_t http1_req_cnt = 0;
-	std::size_t http1_resp_cnt = 0;
-	std::function<void()> on_resp;
-	std::function<void(const http1_msg_t& haeder, const std::pmr::string& body)> on_req;
-
-	std::pmr::string create_data_container() override { return std::pmr::string{}; }
-	void on_http1_response() override {
-		++http1_resp_cnt;
-		if(on_resp) on_resp();
-		else BOOST_FAIL("on_http_response was called, but no handler was setted");
+	std::pmr::string create_data_container() override { ++data_created_count; return std::pmr::string{}; }
+	http1_msg_t::headers_container create_headers_container() override {
+		++headers_created_count;
+		return http1_msg_t::headers_container{};
 	}
-	void on_http1_request(const http1_msg_t& header, const std::pmr::string& body) override
-	{
-		++http1_req_cnt;
-		if(on_req) on_req(header, body);
-		else BOOST_FAIL("on_http_request was called, but no handler was setted");
+
+	void on_head(const http1_msg_t& head) override { ++head_count; if(head_check) head_check(head); }
+	void on_request(const http1_msg_t& head, const std::pmr::string& body) override {
+		++count;
+		if(check) check(head, body);
 	}
 };
 
-BOOST_AUTO_TEST_CASE(simple_req)
+BOOST_AUTO_TEST_CASE(head)
 {
 	test_acceptor traits;
-	http_acceptor acceptor( &traits );
-
-	traits.on_req = [](const auto& header, const auto& body){
+	acceptor_t acceptor( &traits );
+	traits.check = [](const http1_msg_t& header, const std::pmr::string& body) {
+		BOOST_TEST(header.head().method() == "DELETE"sv);
+		BOOST_TEST(header.head().url().uri() == "/path"sv);
 		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
 		BOOST_TEST(body.size() == 0);
 	};
-
-	acceptor("GET /path HTTP/1.1\r\nH1:v1\r\n\r\n"s);
-	BOOST_TEST(traits.http1_req_cnt == 1);
+	traits.head_check = [](const http1_msg_t& header) {
+		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
+		BOOST_TEST(header.headers().headers().size() == 1);
+	};
+	acceptor("DELETE /path HTTP/1.1\r\nH1:v1\r\n\r\n"sv);
+	BOOST_TEST(traits.count == 1);
+	BOOST_TEST(traits.head_count == 1);
 }
+BOOST_AUTO_TEST_SUITE_END() // request
 
-BOOST_AUTO_TEST_CASE(simple_resp)
-{
-	test_acceptor traits;
-	traits.on_resp = [](){};
-
-	http_acceptor acceptor( &traits );
-
-	acceptor("HTTP/1.1 200 OK\r\nH1:v1\r\n\r\n"s);
-	BOOST_TEST(traits.http1_resp_cnt == 1);
-}
-
-BOOST_AUTO_TEST_SUITE_END() // core
 BOOST_AUTO_TEST_SUITE_END() // acceptor
+BOOST_AUTO_TEST_SUITE_END() // core
