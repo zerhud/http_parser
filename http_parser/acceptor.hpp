@@ -9,6 +9,7 @@
 
 #include <variant>
 #include "message.hpp"
+#include "utils/headers_parser.hpp"
 #include "utils/http1_head_parsers.hpp"
 
 namespace http_parser {
@@ -40,8 +41,13 @@ private:
 
 	state_t cur_state = state_t::start;
 	DataContainer data, body;
+	basic_position_string_view<DataContainer> parsing;
+
 	std::variant<request_head, response_head> result_head;
 	http1_message_t result_request;
+	header_message headers;
+
+	headers_parser<DataContainer, Container> parser_headers;
 
 	void create_container()
 	{
@@ -60,23 +66,29 @@ private:
 			cur_state = state_t::http1;
 			result_head = prs.resp_msg();
 			traits->on_http1_response();
+			cur_state = state_t::headers;
+			parsing = parsing.substr(prs.end_position());
 		}
 		else if(st == http1_head_state::http1_req) {
 			cur_state = state_t::http1;
 			result_request.head() = prs.req_msg();
 			traits->on_http1_request(result_request, body);
+			cur_state = state_t::headers;
+			parsing = parsing.substr(prs.end_position());
 		}
 	}
 
 	void parse_headers()
 	{
-		;
+		parser_headers();
+		if(parser_headers.is_finished())
 	}
 public:
 	acceptor(traits_type* traits)
 	    : traits(traits)
 	    , data(traits->create_data_container())
 	    , body(traits->create_data_container())
+	    , parsing(&data)
 	    , result_head(request_head{&data})
 	    , result_request(&body)
 	{}
@@ -86,6 +98,7 @@ public:
 		create_container();
 		for(auto& s:buf) { data.push_back((typename DataContainer::value_type) s); }
 		if(cur_state == state_t::wait) determine();
+		if(state_t::wait < cur_state) parser_headers();
 	}
 };
 
