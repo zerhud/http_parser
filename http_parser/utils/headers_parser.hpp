@@ -122,6 +122,12 @@ public:
 		init_srates();
 	}
 
+	void skip_first_bytes(std::size_t count)
+	{
+		cur_pos += count;
+		switch_pos += count;
+	}
+
 	bool is_finished() const
 	{
 		return cur_state == state_t::finish;

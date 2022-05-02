@@ -201,6 +201,33 @@ BOOST_AUTO_TEST_CASE(single)
 	BOOST_TEST_REQUIRE(res.headers().size() == 1);
 	BOOST_TEST(res.find_header("name").value() == "value"sv);
 }
+BOOST_AUTO_TEST_CASE(skip_first_bytes)
+{
+	std::string data = "garbagename:value\r\n\r\n";
+	http_parser::basic_position_string_view view(&data);
+	http_parser::headers_parser<std::string, std::vector> prs(view);
+	prs.skip_first_bytes(7);
+	BOOST_TEST(prs() == data.size());
+	BOOST_TEST(prs.is_finished() == true);
+	auto res = prs.extract_result();
+	BOOST_TEST_REQUIRE(res.headers().size() == 1);
+	BOOST_TEST(res.headers()[0].name == "name"sv);
+}
+BOOST_AUTO_TEST_CASE(skip_first_bytes_steps)
+{
+	std::string data = "garba"s;
+	http_parser::basic_position_string_view view(&data);
+	http_parser::headers_parser<std::string, std::vector> prs(view);
+	prs.skip_first_bytes(7);
+	prs();
+	BOOST_TEST(prs.is_finished() == false);
+	data += "gename:value\r\n\r\n"s;
+	BOOST_TEST(prs() == data.size());
+	BOOST_TEST(prs.is_finished() == true);
+	auto res = prs.extract_result();
+	BOOST_TEST_REQUIRE(res.headers().size() == 1);
+	BOOST_TEST(res.headers()[0].name == "name"sv);
+}
 BOOST_AUTO_TEST_CASE(speed, * utf::enable_if<enable_speed_tests>())
 {
 	std::string data = "name:value\r\nname: value\r\n\r\n";
