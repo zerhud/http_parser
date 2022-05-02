@@ -17,7 +17,7 @@ template<template<class> class Container, typename DataContainer>
 struct acceptor_traits {
 	virtual ~acceptor_traits() noexcept =default ;
 	virtual void on_http1_request(
-	        const request_message<Container, DataContainer>& header,
+	        const http1_message<Container, req_head_message, DataContainer>& header,
 	        const DataContainer& body) {}
 	virtual void on_http1_response() {}
 	virtual DataContainer create_data_container() =0 ;
@@ -33,15 +33,15 @@ public:
 	using request_head = req_head_message<DataContainer>;
 	using response_head = resp_head_message<DataContainer>;
 
-	using request_message_t = request_message<Container, DataContainer>;
+	using http1_message_t = http1_message<Container, req_head_message, DataContainer>;
 private:
 	traits_type* traits;
-	enum state_t { start, wait, http1, http2, websocket };
+	enum class state_t { start, wait, http1, http2, websocket, headers, body };
 
 	state_t cur_state = state_t::start;
 	DataContainer data, body;
 	std::variant<request_head, response_head> result_head;
-	request_message<Container, DataContainer> result_request;
+	http1_message_t result_request;
 
 	void create_container()
 	{
@@ -66,6 +66,11 @@ private:
 			result_request.head() = prs.req_msg();
 			traits->on_http1_request(result_request, body);
 		}
+	}
+
+	void parse_headers()
+	{
+		;
 	}
 public:
 	acceptor(traits_type* traits)

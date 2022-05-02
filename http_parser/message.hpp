@@ -88,6 +88,7 @@ public:
 
 template<typename DataContainer>
 struct resp_head_message {
+	resp_head_message(const DataContainer* d) : reason(d) {}
 	resp_head_message(std::uint16_t c, const DataContainer* d, std::size_t pos, std::size_t size)
 	    : code(c)
 	    , reason(d, pos, size)
@@ -97,22 +98,27 @@ struct resp_head_message {
 	basic_position_string_view<DataContainer> reason;
 };
 
-template<template<class> class Container, typename DataContainer>
-class request_message {
+template<template<class> class Container, template<class> class Head, typename DataContainer>
+class http1_message {
 	const DataContainer* data;
-	req_head_message<DataContainer> head_;
+	Head<DataContainer> head_;
 	header_message<Container, DataContainer> headers_;
 public:
-	request_message(const DataContainer* d)
+	http1_message(const DataContainer* d)
 	    : data(d)
 	    , head_(d)
 	    , headers_(d)
 	{}
 
-	req_head_message<DataContainer>& head() { return head_; }
-	const req_head_message<DataContainer>& head() const { return head_; }
+	Head<DataContainer>& head() { return head_; }
+	const Head<DataContainer>& head() const { return head_; }
 
 	const header_message<Container, DataContainer>& headers() const { return headers_; }
+
+	auto find_header(std::string_view v) const
+	{
+		return headers_.find_header(v);
+	}
 };
 
 } // namespace http_parser

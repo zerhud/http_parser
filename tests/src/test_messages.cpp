@@ -41,6 +41,11 @@ BOOST_AUTO_TEST_CASE(resp_head)
 	http_parser::resp_head_message msg{200, &data, 4, 2};
 	BOOST_TEST(msg.code == 200);
 	BOOST_TEST(msg.reason == "OK"sv);
+
+	http_parser::resp_head_message msg_data{&data};
+	BOOST_TEST(msg.code == 200);
+	BOOST_TEST(msg.reason == ""sv);
+	BOOST_CHECK(msg.reason.empty());
 }
 BOOST_AUTO_TEST_SUITE(headers)
 BOOST_AUTO_TEST_CASE(creating)
@@ -95,11 +100,11 @@ BOOST_AUTO_TEST_CASE(search)
 }
 BOOST_AUTO_TEST_SUITE_END() // headers
 BOOST_AUTO_TEST_SUITE(request)
-using req_msg_t = http_parser::request_message<std::vector,std::string>;
+using http1_msg_t = http_parser::http1_message<std::vector, req_head_message, std::string>;
 BOOST_AUTO_TEST_CASE(head)
 {
 	std::string data = "GET /path HTTP/1.1\r\n\r\n"s;
-	req_msg_t msg(&data);
+	http1_msg_t msg(&data);
 
 	msg.head().url(4, 5);
 	BOOST_TEST(msg.head().url().uri() == "/path"sv);
@@ -107,7 +112,7 @@ BOOST_AUTO_TEST_CASE(head)
 BOOST_AUTO_TEST_CASE(headers)
 {
 	std::string data = "GET /path HTTP/1.1\r\nTest: test\r\n\r\n"s;
-	req_msg_t msg(&data);
+	http1_msg_t msg(&data);
 	BOOST_TEST(msg.headers().empty() == true);
 }
 BOOST_AUTO_TEST_SUITE_END() // request

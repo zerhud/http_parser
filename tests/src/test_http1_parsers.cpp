@@ -51,14 +51,17 @@ BOOST_AUTO_TEST_CASE(sates)
 	http_parser::basic_position_string_view view{&data};
 	http_parser::http1_request_head_parser prs(view);
 
-	data = "HTTP/1.1 200 OK\r\n";
+	data = "HTTP/1.1 200 OK\r\n"s;
 	BOOST_TEST( prs() == http_parser::http1_head_state::http1_resp );
+	BOOST_TEST(prs.end_position() == data.size());
 
-	data = "GET /path HTTP/1.1\r";
+	data = "GET /path HTTP/1.1\r"s;
 	BOOST_TEST( prs() == http_parser::http1_head_state::wait );
+	BOOST_TEST(prs.end_position() == data.size());
 
 	data += "\n";
 	BOOST_TEST( prs() == http_parser::http1_head_state::http1_req );
+	BOOST_TEST(prs.end_position() == data.size());
 }
 BOOST_AUTO_TEST_CASE(request_message)
 {
@@ -66,6 +69,7 @@ BOOST_AUTO_TEST_CASE(request_message)
 	http_parser::basic_position_string_view view{&data};
 	http_parser::http1_request_head_parser prs(view);
 	prs();
+	BOOST_TEST(prs.end_position() == data.size());
 	BOOST_TEST(prs.req_msg().method() == "GET"sv);
 	BOOST_TEST(prs.req_msg().url().uri() == "/path"sv);
 }
@@ -75,6 +79,7 @@ BOOST_AUTO_TEST_CASE(response_message)
 	http_parser::basic_position_string_view view{&data};
 	http_parser::http1_request_head_parser prs(view);
 	prs();
+	BOOST_TEST(prs.end_position() == data.size());
 	BOOST_TEST(prs.resp_msg().code == 200);
 	BOOST_TEST(prs.resp_msg().reason == "OK OK"sv);
 }
@@ -89,15 +94,45 @@ BOOST_AUTO_TEST_CASE(max_len)
 BOOST_AUTO_TEST_CASE(containers)
 {
 	std::vector<std::byte> data;
-	std::string str_data = "HTTP/1.1 200 OK OK\r\n"s;
+	std::string str_data = "HTTP/1.1 200 OK OK\r\nH1:v\r\n"s;
 	for(auto& c:str_data) data.emplace_back((std::byte)c);
 
 	http_parser::basic_position_string_view view{&data};
 	http_parser::http1_request_head_parser prs(view);
 	prs();
+	BOOST_TEST(prs.end_position() == data.size()-6);
 	BOOST_TEST(prs.resp_msg().code == 200);
 	BOOST_TEST(prs.resp_msg().reason == "OK OK"sv);
 }
+BOOST_AUTO_TEST_SUITE(bugs)
+BOOST_AUTO_TEST_CASE(max_size)
+{
+	std::string data = "GET /path HTTP/1.1\r\n"
+	                   "Header-With-Long-Value:longvalue long value long value\r\n"
+	                   "Header-With-Long-Value:longvalue long value long value\r\n"
+	                   "Header-With-Long-Value:longvalue long value long value\r\n"
+	                   "Header-With-Long-Value:longvalue long value long value\r\n"
+	                   "Header-With-Long-Value:longvalue long value long value\r\n"
+	                   "Header-With-Long-Value:longvalue long value long value\r\n"
+	                   "Header-With-Long-Value:longvalue long value long value\r\n"
+	                   "Header-With-Long-Value:longvalue long value long value\r\n"
+	                   "Header-With-Long-Value:longvalue long value long value\r\n"
+	                   "\r\n"s;
+	http_parser::basic_position_string_view view{&data};
+	http_parser::http1_request_head_parser prs(view);
+	BOOST_TEST(prs() == http_parser::http1_head_state::http1_req);
+	BOOST_TEST(prs.end_position() == 20);
+	BOOST_TEST(prs.req_msg().method() == "GET"sv);
+	BOOST_TEST(prs.req_msg().url().uri() == "/path"sv);
+}
+BOOST_AUTO_TEST_CASE(correct_http)
+{
+	std::string data = "GET /path http/1.1\rHTTP/1.1\r\n"s;
+	http_parser::basic_position_string_view view{&data};
+	http_parser::http1_request_head_parser prs(view);
+	BOOST_TEST(prs() == http_parser::http1_head_state::garbage);
+}
+BOOST_AUTO_TEST_SUITE_END() // bugs
 BOOST_AUTO_TEST_SUITE_END() // heads
 BOOST_AUTO_TEST_SUITE(headers)
 BOOST_AUTO_TEST_CASE(common)

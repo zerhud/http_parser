@@ -12,13 +12,13 @@ BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(acceptor)
 
 using http_acceptor = http_parser::acceptor<std::pmr::vector, std::pmr::string>;
-using req_msg_t = http_acceptor::request_message_t;
+using http1_msg_t = http_acceptor::http1_message_t;
 
 struct test_acceptor : http_acceptor::traits_type {
 	std::size_t http1_req_cnt = 0;
 	std::size_t http1_resp_cnt = 0;
 	std::function<void()> on_resp;
-	std::function<void(const req_msg_t& haeder, const std::pmr::string& body)> on_req;
+	std::function<void(const http1_msg_t& haeder, const std::pmr::string& body)> on_req;
 
 	std::pmr::string create_data_container() override { return std::pmr::string{}; }
 	void on_http1_response() override {
@@ -26,7 +26,7 @@ struct test_acceptor : http_acceptor::traits_type {
 		if(on_resp) on_resp();
 		else BOOST_FAIL("on_http_response was called, but no handler was setted");
 	}
-	void on_http1_request(const req_msg_t& header, const std::pmr::string& body) override
+	void on_http1_request(const http1_msg_t& header, const std::pmr::string& body) override
 	{
 		++http1_req_cnt;
 		if(on_req) on_req(header, body);
@@ -40,6 +40,7 @@ BOOST_AUTO_TEST_CASE(simple_req)
 	http_acceptor acceptor( &traits );
 
 	traits.on_req = [](const auto& header, const auto& body){
+		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
 		BOOST_TEST(body.size() == 0);
 	};
 
