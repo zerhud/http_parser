@@ -43,9 +43,9 @@ BOOST_AUTO_TEST_CASE(resp_head)
 	BOOST_TEST(msg.reason == "OK"sv);
 
 	http_parser::resp_head_message msg_data{&data};
-	BOOST_TEST(msg.code == 200);
-	BOOST_TEST(msg.reason == ""sv);
-	BOOST_CHECK(msg.reason.empty());
+	BOOST_TEST(msg_data.code == 200);
+	BOOST_TEST(msg_data.reason == ""sv);
+	BOOST_CHECK(msg_data.reason.empty());
 }
 BOOST_AUTO_TEST_SUITE(headers)
 BOOST_AUTO_TEST_CASE(creating)

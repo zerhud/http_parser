@@ -88,7 +88,7 @@ public:
 
 template<typename DataContainer>
 struct resp_head_message {
-	resp_head_message(const DataContainer* d) : reason(d) {}
+	resp_head_message(const DataContainer* d) : resp_head_message(200, d, 0, 0) {}
 	resp_head_message(std::uint16_t c, const DataContainer* d, std::size_t pos, std::size_t size)
 	    : code(c)
 	    , reason(d, pos, size)
