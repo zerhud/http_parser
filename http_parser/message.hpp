@@ -9,6 +9,7 @@
 
 #include <optional>
 #include "uri_parser.hpp"
+#include "utils/cvt.hpp"
 #include "utils/pos_string_view.hpp"
 
 namespace http_parser {
@@ -53,6 +54,20 @@ public:
 		auto pos = std::find_if(headers_.begin(), headers_.end(),
 		                        [v](const hv_type& hv){ return hv.name == v; });
 		return pos == headers_.end() ? std::nullopt : std::make_optional(pos->value);
+	}
+
+	std::optional<std::size_t> content_size() const
+	{
+		auto header = find_header("Content-Length");
+		if(!header.has_value()) return std::nullopt;
+		return to_int(*header);
+	}
+
+	bool is_chunked() const
+	{
+		using namespace std::literals;
+		auto header = find_header("Transfer-Encoding");
+		return header && *header == "chunked"sv;
 	}
 };
 

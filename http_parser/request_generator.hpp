@@ -200,7 +200,7 @@ public:
 	basic_request_generator& make_chunked()
 	{
 		if(!chunked())
-			header("Transfer-encoding", "chunked");
+			header("Transfer-Encoding", "chunked");
 		cur_state = state_t::chunked;
 		return *this;
 	}
