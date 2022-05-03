@@ -98,6 +98,23 @@ BOOST_AUTO_TEST_CASE(search)
 	BOOST_TEST_REQUIRE( msg.headers().size() == 2 );
 	BOOST_TEST( msg.headers().at(1).name == "H2"sv );
 }
+BOOST_AUTO_TEST_CASE(http_methods)
+{
+	std::string data = "Transfer-Encoding: chunked\r\nContent-Length: 2809";
+	auto* mem = std::pmr::get_default_resource();
+	header_message<std::pmr::vector, std::string> msg(&data, mem);
+
+	BOOST_CHECK_NO_THROW( msg.add_header_name(28, 14) );
+	BOOST_CHECK_NO_THROW( msg.last_header_value(44, 4) );
+	BOOST_TEST( msg.find_header("Content-Length").value() == "2809"sv );
+	BOOST_TEST( msg.content_size().value() == 2809 );
+	BOOST_TEST( msg.is_chunked() == false );
+
+	BOOST_CHECK_NO_THROW( msg.add_header_name(0, 17) );
+	BOOST_CHECK_NO_THROW( msg.last_header_value(19, 7) );
+	BOOST_TEST( msg.find_header("Transfer-Encoding").value() == "chunked"sv );
+	BOOST_TEST( msg.is_chunked() == true );
+}
 BOOST_AUTO_TEST_SUITE_END() // headers
 BOOST_AUTO_TEST_SUITE(request)
 using http1_msg_t = http_parser::http1_message<std::vector, req_head_message, std::string>;
