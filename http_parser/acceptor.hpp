@@ -17,13 +17,15 @@ namespace http_parser {
 
 template<typename Head, typename DataContainer>
 struct http1_acceptor_traits {
+	using data_view = basic_position_string_view<DataContainer>;
+
 	virtual ~http1_acceptor_traits () noexcept =default ;
 
 	virtual DataContainer create_data_container() =0 ;
 	virtual typename Head::headers_container create_headers_container() =0 ;
 
 	virtual void on_head(const Head& head) {}
-	virtual void on_request(const Head& head, const DataContainer& body) {}
+	virtual void on_request(const Head& head, const data_view& body) {}
 };
 
 template<
@@ -35,12 +37,13 @@ public:
 	using message_t = http1_message<Container, req_head_message, DataContainer>;
 	using traits_type = http1_acceptor_traits<message_t, DataContainer>;
 private:
-	enum class state_t { wait, head, headers, body };
+	enum class state_t { wait, head, headers, body, finish };
 
 	state_t cur_state = state_t::wait;
 	traits_type* traits;
 	DataContainer data;
 	basic_position_string_view<DataContainer> head_view;
+	basic_position_string_view<DataContainer> body_view;
 
 	message_t result_request;
 
@@ -52,7 +55,7 @@ private:
 		auto st = prs();
 //		if(st == http1_head_state::wait) return;
 		if(st != http1_head_state::http1_req)
-			throw std::runtime_error("request was avait");
+			throw std::runtime_error("request was await");
 		cur_state = state_t::head;
 		result_request.head() = prs.req_msg();
 		parser_hrds.skip_first_bytes(prs.end_position());
@@ -63,20 +66,37 @@ private:
 		result_request.headers() = parser_hrds.extract_result();
 		cur_state = state_t::headers;
 	}
-	void headers_ready() { traits->on_head(result_request); }
-	void parse_body() {}
+	void headers_ready() {
+		const bool body_exists = result_request.headers().body_exists();
+		body_view = body_view.substr(parser_hrds.finish_position());
+		if(body_exists) traits->on_head(result_request);
+		else traits->on_request( result_request, body_view );
+		cur_state = body_exists ? state_t::body : state_t::finish;
+	}
+	void parse_body() {
+		body_view.advance_to_end();
+		if(auto size=result_request.headers().content_size(); size) {
+			if(body_view.size() == *size) {
+				traits->on_request(result_request, body_view);
+				cur_state = state_t::finish;
+			}
+		} else if(result_request.headers().is_chunked()) {
+			;
+		}
+	}
 public:
 	http1_req_acceptor(traits_type* traits)
 	    : traits(traits)
 	    , data(traits->create_data_container())
-	    , head_view(&data)
+	    , head_view(&data, 0, 0)
+	    , body_view(&data, 0, 0)
 	    , result_request(&data)
 	    , parser_hrds(&data, traits->create_headers_container())
 	{}
 
 	template<typename S>
 	void operator()(S&& buf) {
-		assert( cur_state <= state_t::body );
+		assert( cur_state <= state_t::finish );
 		for(auto& s:buf) data.push_back((typename DataContainer::value_type) s);
 		if(cur_state == state_t::wait) parse_head();
 		if(cur_state == state_t::head) parse_headers();

@@ -69,6 +69,12 @@ public:
 		auto header = find_header("Transfer-Encoding");
 		return header && *header == "chunked"sv;
 	}
+
+	bool body_exists() const
+	{
+		auto size = content_size();
+		return (size && *size != 0) || is_chunked();
+	}
 };
 
 template<typename DataContainer>

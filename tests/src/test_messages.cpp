@@ -56,6 +56,7 @@ BOOST_AUTO_TEST_CASE(creating)
 	BOOST_CHECK_NO_THROW( msg.add_header_name(0, 1) );
 	BOOST_CHECK_NO_THROW( msg.last_header_value(3, 1) );
 	BOOST_TEST( msg.find_header("H").value() == "1"sv );
+	BOOST_TEST( msg.body_exists() == false );
 }
 BOOST_AUTO_TEST_CASE(empty)
 {
@@ -109,11 +110,25 @@ BOOST_AUTO_TEST_CASE(http_methods)
 	BOOST_TEST( msg.find_header("Content-Length").value() == "2809"sv );
 	BOOST_TEST( msg.content_size().value() == 2809 );
 	BOOST_TEST( msg.is_chunked() == false );
+	BOOST_TEST( msg.body_exists() == true );
 
 	BOOST_CHECK_NO_THROW( msg.add_header_name(0, 17) );
 	BOOST_CHECK_NO_THROW( msg.last_header_value(19, 7) );
 	BOOST_TEST( msg.find_header("Transfer-Encoding").value() == "chunked"sv );
 	BOOST_TEST( msg.is_chunked() == true );
+	BOOST_TEST( msg.body_exists() == true );
+}
+BOOST_AUTO_TEST_CASE(body_exists_with_chunked)
+{
+	std::string data = "Transfer-Encoding: chunked\r\nContent-Length: 2809";
+	auto* mem = std::pmr::get_default_resource();
+	header_message<std::pmr::vector, std::string> msg(&data, mem);
+	BOOST_TEST( msg.body_exists() == false );
+	BOOST_CHECK_NO_THROW( msg.add_header_name(0, 17) );
+	BOOST_CHECK_NO_THROW( msg.last_header_value(19, 7) );
+	BOOST_TEST( msg.find_header("Transfer-Encoding").value() == "chunked"sv );
+	BOOST_TEST( msg.is_chunked() == true );
+	BOOST_TEST( msg.body_exists() == true );
 }
 BOOST_AUTO_TEST_SUITE_END() // headers
 BOOST_AUTO_TEST_SUITE(request)
