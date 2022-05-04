@@ -65,6 +65,12 @@ public:
 
 	std::size_t size() const { return len; }
 
+	void resize(std::size_t nl)
+	{
+		 advance_to_end();
+		 if(nl < len) len = nl;
+	}
+
 	void advance_to_end() { assert(src); len = src->size() - pos; }
 
 	basic_position_string_view<Container> substr(std::size_t p) const

@@ -59,8 +59,8 @@ BOOST_AUTO_TEST_CASE(simple_body)
 		BOOST_TEST(header.head().url().uri() == "/pa/th?a=b"sv);
 		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
 		BOOST_TEST(header.headers().headers().size() == 2);
-		BOOST_TEST(body.size() == 8);
-		BOOST_TEST(body == "ok_extra"sv);
+		BOOST_TEST(body.size() == 2);
+		BOOST_TEST(body == "ok"sv);
 	};
 	traits.head_check = [&traits](const http1_msg_t& header) {
 		BOOST_TEST(traits.count == 0);

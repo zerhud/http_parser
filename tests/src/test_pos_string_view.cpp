@@ -111,6 +111,16 @@ BOOST_AUTO_TEST_CASE(after_finish)
 	BOOST_TEST(view2 == "123"sv);
 	BOOST_TEST(view1.following() == "123"sv);
 }
+BOOST_AUTO_TEST_CASE(resize)
+{
+	auto data = "abc"s;
+	psv_t view(&data);
+	view.resize(10);
+	BOOST_TEST(view == "abc"sv);
+	data += "1234567890"s;
+	view.resize(10);
+	BOOST_TEST(view == "abc1234567"sv);
+}
 BOOST_AUTO_TEST_SUITE_END() // pos_string_view
 BOOST_AUTO_TEST_SUITE_END() // utils
 
