@@ -76,7 +76,7 @@ private:
 	void parse_body() {
 		body_view.advance_to_end();
 		if(auto size=result_request.headers().content_size(); size) {
-			if(body_view.size() == *size) {
+			if(*size <= body_view.size()) {
 				traits->on_request(result_request, body_view);
 				cur_state = state_t::finish;
 			}

@@ -59,8 +59,8 @@ BOOST_AUTO_TEST_CASE(simple_body)
 		BOOST_TEST(header.head().url().uri() == "/pa/th?a=b"sv);
 		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
 		BOOST_TEST(header.headers().headers().size() == 2);
-		BOOST_TEST(body.size() == 2);
-		BOOST_TEST(body == "ok"sv);
+		BOOST_TEST(body.size() == 8);
+		BOOST_TEST(body == "ok_extra"sv);
 	};
 	traits.head_check = [&traits](const http1_msg_t& header) {
 		BOOST_TEST(traits.count == 0);
@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(simple_body)
 		BOOST_TEST(header.headers().headers().size() == 2);
 		BOOST_TEST(header.headers().content_size().value() == 2);
 	};
-	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nok"sv);
+	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nok_extra"sv);
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 1);
 }
