@@ -81,6 +81,13 @@ public:
 		ret.len =  src->size() <= p + l ? src->size() - p : l;
 		return ret;
 	}
+	basic_position_string_view<Container> following() const
+	{
+		basic_position_string_view<Container> ret(src);
+		ret.pos = this->pos + this->len;
+		ret.advance_to_end();
+		return ret;
+	}
 
 	const value_type& operator[](std::size_t i) const
 	{

@@ -99,6 +99,18 @@ BOOST_AUTO_TEST_CASE(reset)
 	view.reset();
 	BOOST_TEST( view == "abcefg"sv );
 }
+BOOST_AUTO_TEST_CASE(after_finish)
+{
+	auto data = "abc"s;
+	psv_t view1(&data);
+	psv_t view2 = view1.following();
+	BOOST_CHECK( view2.empty() );
+	BOOST_TEST(view2 == ""sv);
+	data += "123";
+	view2.advance_to_end();
+	BOOST_TEST(view2 == "123"sv);
+	BOOST_TEST(view1.following() == "123"sv);
+}
 BOOST_AUTO_TEST_SUITE_END() // pos_string_view
 BOOST_AUTO_TEST_SUITE_END() // utils
 
