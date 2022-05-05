@@ -11,7 +11,7 @@ using namespace std::literals;
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(acceptor)
 BOOST_AUTO_TEST_SUITE(request)
-using acceptor_t = http_parser::http1_req_acceptor<std::pmr::vector, std::pmr::string>;
+using acceptor_t = http_parser::http1_req_acceptor<std::pmr::vector, std::pmr::string, 100, 100>;
 using http1_msg_t = acceptor_t::message_t;
 struct test_acceptor : acceptor_t::traits_type {
 	std::size_t count = 0;
@@ -88,8 +88,8 @@ BOOST_AUTO_TEST_CASE(chunked_body)
 				BOOST_TEST(body.size() == 10);
 				BOOST_TEST(body == "1234567890"sv);
 			} else if(traits.count == 3) {
-				BOOST_TEST(body.size() == 1);
-				BOOST_TEST(body == "1"sv);
+				BOOST_TEST(body.size() == 0x5a);
+				BOOST_TEST(body == "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"sv);
 			} else if(traits.count == 4) {
 				BOOST_TEST(body.size() == 0);
 				BOOST_TEST(body == ""sv);
@@ -102,7 +102,7 @@ BOOST_AUTO_TEST_CASE(chunked_body)
 		BOOST_TEST(traits.count == 0);
 		BOOST_TEST(header.headers().is_chunked() == true);
 	};
-	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nokA\r\n12345678901"sv);
+	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nokA\r\n12345678905a"sv);
 	BOOST_TEST(traits.count == 2);
 	BOOST_TEST(traits.head_count == 1);
 
@@ -110,13 +110,34 @@ BOOST_AUTO_TEST_CASE(chunked_body)
 	BOOST_TEST(traits.count == 2);
 	BOOST_TEST(traits.head_count == 1);
 
-	acceptor("10\r"sv);
+	acceptor("1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678900\r"sv);
 	BOOST_TEST(traits.count == 3);
 	BOOST_TEST(traits.head_count == 1);
 
 	acceptor("\n"sv);
 	BOOST_TEST(traits.count == 4);
 	BOOST_TEST(traits.head_count == 1);
+}
+BOOST_AUTO_TEST_CASE(head_limit_overflow)
+{
+	test_acceptor traits;
+	acceptor_t acceptor( &traits );
+	BOOST_CHECK_THROW( acceptor(
+	                       "POST /p HTTP/1.1\r\n"
+	                       "H1:1234567890123456789012345678901234567890"
+	                       "1234567890123456789012345678901234567890"
+	                       "12345678901234567890\r\n"sv), std::out_of_range );
+}
+BOOST_AUTO_TEST_CASE(body_limit_overflow)
+{
+	test_acceptor traits;
+	acceptor_t acceptor( &traits );
+	BOOST_CHECK_NO_THROW( acceptor(
+	                       "POST /p HTTP/1.1\r\nContent-Length: 120\r\n\r\n"
+	                       "1234567890123456789012345678901234567890"
+	                       "1234567890123456789012345678901234567890"
+	                       ""sv) );
+	BOOST_CHECK_THROW( acceptor("0034567890123456789012345678901234567890"sv), std::out_of_range);
 }
 BOOST_AUTO_TEST_SUITE_END() // request
 

@@ -31,7 +31,9 @@ struct http1_acceptor_traits {
 
 template<
         template<class> class Container,
-        typename DataContainer
+        typename DataContainer,
+        std::size_t max_body_size = 4 * 1024,
+        std::size_t max_head_size = 1 * 1024
         >
 class http1_req_acceptor final {
 public:
@@ -42,7 +44,7 @@ private:
 
 	state_t cur_state = state_t::wait;
 	traits_type* traits;
-	DataContainer data;
+	DataContainer data, body_data;
 	basic_position_string_view<DataContainer> head_view;
 	basic_position_string_view<DataContainer> body_view;
 
@@ -63,13 +65,14 @@ private:
 	}
 	void parse_headers() {
 		parser_hrds();
+		require_head_limit(parser_hrds.finish_position());
 		if(!parser_hrds.is_finished()) return;
 		result_request.headers() = parser_hrds.extract_result();
 		cur_state = state_t::headers;
 	}
 	void headers_ready() {
 		const bool body_exists = result_request.headers().body_exists();
-		body_view = body_view.substr(parser_hrds.finish_position());
+		move_to_body_container(parser_hrds.finish_position());
 		if(body_exists) traits->on_head(result_request);
 		else traits->on_request( result_request, body_view );
 		cur_state = body_exists ? state_t::body : state_t::finish;
@@ -88,15 +91,51 @@ private:
 				if(prs.ready()) traits->on_request(result_request, prs.result());
 				else if(prs.error()) traits->on_request(result_request, head_view);
 			}
-			body_view = body_view.substr(prs.end_pos());
+			clean_body(prs.end_pos());
+			if(prs.finish()) cur_state = state_t::finish;
 		}
+	}
+
+	void clean_body(std::size_t actual_pos)
+	{
+		auto body = traits->create_data_container();
+		for(std::size_t i=actual_pos;i<body_data.size();++i)
+			body.push_back(body_data[i]);
+		body_data = std::move(body);
+		body_view.reset();
+	}
+
+	void move_to_body_container(std::size_t start)
+	{
+		for(std::size_t i=start;i<data.size();++i)
+			body_data.push_back(data[i]);
+		body_view.advance_to_end();
+	}
+
+	void require_limits(std::size_t size_to_add)
+	{
+		using namespace std::literals;
+		if(cur_state == state_t::body) {
+			if(max_body_size < body_data.size() + size_to_add)
+				throw std::out_of_range("maximum body size reached"s);
+		} else {
+			require_head_limit(data.size() + size_to_add);
+		}
+	}
+
+	void require_head_limit(std::size_t size_now) const
+	{
+		using namespace std::literals;
+		if(max_head_size < size_now)
+			    throw std::out_of_range("maximum head size reached"s);
 	}
 public:
 	http1_req_acceptor(traits_type* traits)
 	    : traits(traits)
 	    , data(traits->create_data_container())
+	    , body_data(traits->create_data_container())
 	    , head_view(&data, 0, 0)
-	    , body_view(&data, 0, 0)
+	    , body_view(&body_data, 0, 0)
 	    , result_request(&data)
 	    , parser_hrds(&data, traits->create_headers_container())
 	{}
@@ -104,7 +143,10 @@ public:
 	template<typename S>
 	void operator()(S&& buf) {
 		assert( cur_state <= state_t::finish );
-		for(auto& s:buf) data.push_back((typename DataContainer::value_type) s);
+		if(!data.empty()) require_limits( buf.size() );
+		if(cur_state == state_t::body)
+			for(auto& s:buf) body_data.push_back((typename DataContainer::value_type) s);
+		else for(auto& s:buf) data.push_back((typename DataContainer::value_type) s);
 		if(cur_state == state_t::wait) parse_head();
 		if(cur_state == state_t::head) parse_headers();
 		if(cur_state == state_t::headers) headers_ready();
