@@ -55,7 +55,7 @@ class chunked_body_parser {
 			cur_state = state_t::error;
 			return false;
 		}
-		body_size = to_int(src.substr(0, npos-1));
+		body_size = to_int(src.substr(0, npos-1), 16);
 		last_size_pos = npos;
 		src = src.substr(npos);
 		cur_state = state_t::body;

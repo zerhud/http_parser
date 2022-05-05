@@ -331,6 +331,17 @@ BOOST_AUTO_TEST_CASE(by_peaces)
 	BOOST_TEST(prs.end_pos() == 12);
 
 }
+BOOST_AUTO_TEST_CASE(greater_16_body)
+{
+	std::string data = "14\r\n12345678901234567890";
+	http_parser::basic_position_string_view view(&data);
+	http_parser::chunked_body_parser prs(view);
+	prs();
+	BOOST_TEST(prs.ready() == true);
+	BOOST_TEST(prs.finish() == false);
+	BOOST_TEST(prs.result() == "12345678901234567890"sv);
+	BOOST_TEST(prs.end_pos() == 24);
+}
 BOOST_AUTO_TEST_CASE(wrong)
 {
 	std::string data = "\r\na";
