@@ -37,4 +37,23 @@ BOOST_AUTO_TEST_CASE(to_str_16)
 	BOOST_CHECK(to_str16c<std::wstring>(-0xABCD) == L"-abcd"s);
 }
 
+BOOST_AUTO_TEST_CASE(is_hex)
+{
+	using http_parser::is_hex_digit;
+	BOOST_TEST(is_hex_digit('-') == true);
+
+	BOOST_TEST(is_hex_digit('0') == true);
+	BOOST_TEST(is_hex_digit('9') == true);
+	BOOST_TEST(is_hex_digit('a') == true);
+	BOOST_TEST(is_hex_digit('f') == true);
+	BOOST_TEST(is_hex_digit('A') == true);
+	BOOST_TEST(is_hex_digit('F') == true);
+
+	BOOST_TEST(is_hex_digit('g') == false);
+	BOOST_TEST(is_hex_digit('G') == false);
+	BOOST_TEST(is_hex_digit(';') == false);
+	BOOST_TEST(is_hex_digit('z') == false);
+
+}
+
 BOOST_AUTO_TEST_SUITE_END() // utils

@@ -13,6 +13,12 @@
 namespace http_parser {
 
 template<typename S>
+inline bool is_hex_digit(S s)
+{
+	return ((S)'0' <= s && s <= (S)'9') || ((S)'a' <= s && s <= (S)'f') || ((S)'A' <= s && s <= (S)'F') || s == (S)'-';
+}
+
+template<typename S>
 inline std::int8_t ascii_to_int(S s)
 {
 	//TODO: use unordered map or even vector for speed up

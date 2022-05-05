@@ -126,6 +126,27 @@ BOOST_AUTO_TEST_CASE(chunked_body)
 	BOOST_TEST(traits.count == 4);
 	BOOST_TEST(traits.head_count == 1);
 }
+BOOST_AUTO_TEST_CASE(chunked_body_trash)
+{
+	test_acceptor traits;
+	acceptor_t acceptor( &traits );
+	traits.check = [&traits](const http1_msg_t& header, const auto& body) {
+		BOOST_TEST(traits.head_count == 1);
+		BOOST_TEST_CONTEXT("current count " << traits.count) {
+			if(traits.count == 1) {
+				BOOST_TEST(body.size() == 2);
+				BOOST_TEST(body == "ok"sv);
+			} else if(traits.count == 2) {
+				BOOST_TEST(body.size() == 10);
+				BOOST_TEST(body == "1234567890"sv);
+			}
+		}
+	};
+
+	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nTransfer-Encoding: chunked\r\n\r\n2\r\noktrashA\r\n12345678905a"sv);
+	BOOST_TEST(traits.count == 2);
+	BOOST_TEST(traits.head_count == 1);
+}
 BOOST_AUTO_TEST_CASE(chunked_body_error)
 {
 	test_acceptor traits;

@@ -353,6 +353,22 @@ BOOST_AUTO_TEST_CASE(wrong)
 	BOOST_TEST(prs.error() == true);
 	BOOST_TEST(prs.result() == ""sv);
 }
+BOOST_AUTO_TEST_CASE(with_trash)
+{
+	std::string data = "2\r\noktrash14\r\n12345678901234567890";
+	http_parser::basic_position_string_view view(&data);
+	http_parser::chunked_body_parser prs(view);
+	prs();
+	BOOST_TEST(prs.ready() == true);
+	BOOST_TEST(prs.finish() == false);
+	BOOST_TEST(prs.result() == "ok"sv);
+	BOOST_TEST(prs.end_pos() == 5);
+
+	prs();
+	BOOST_TEST(prs.ready() == true);
+	BOOST_TEST(prs.finish() == false);
+	BOOST_TEST(prs.result() == "12345678901234567890"sv);
+}
 BOOST_AUTO_TEST_SUITE_END() // chunked_body
 BOOST_AUTO_TEST_SUITE_END() // http1_parsers
 BOOST_AUTO_TEST_SUITE_END() // core

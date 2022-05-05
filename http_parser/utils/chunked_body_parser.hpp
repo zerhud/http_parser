@@ -55,6 +55,11 @@ class chunked_body_parser {
 			cur_state = state_t::error;
 			return false;
 		}
+		for(std::size_t i=npos-2;0<i;--i) if(!is_hex_digit(src[i])) {
+			src = src.substr(i+1);
+			npos -= i+1;
+			break;
+		}
 		body_size = to_int(src.substr(0, npos-1), 16);
 		last_size_pos = npos;
 		src = src.substr(npos);
