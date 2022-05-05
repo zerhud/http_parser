@@ -16,10 +16,11 @@ using http1_msg_t = acceptor_t::message_t;
 struct test_acceptor : acceptor_t::traits_type {
 	std::size_t count = 0;
 	std::size_t head_count = 0;
+	std::size_t error_count = 0;
 	std::size_t data_created_count = 0;
 	std::size_t headers_created_count = 0;
 	std::function<void(const http1_msg_t& req_head_message)> head_check;
-	std::function<void(const http1_msg_t& req_head_message, const data_view& body)> check;
+	std::function<void(const http1_msg_t& req_head_message, const data_view& body)> check, error_check;
 
 	std::pmr::string create_data_container() override { ++data_created_count; return std::pmr::string{}; }
 	http1_msg_t::headers_container create_headers_container() override {
@@ -28,9 +29,16 @@ struct test_acceptor : acceptor_t::traits_type {
 	}
 
 	void on_head(const http1_msg_t& head) override { ++head_count; if(head_check) head_check(head); }
-	void on_request(const http1_msg_t& head, const data_view& body) override {
+	void on_message(const http1_msg_t& head, const data_view& body) override {
 		++count;
 		if(check) check(head, body);
+	}
+	void on_error(const http1_msg_t& head, const data_view& body) override {
+		if(!error_check) BOOST_FAIL("some error detected");
+		else {
+			++error_count;
+			error_check(head, body);
+		}
 	}
 };
 
@@ -118,6 +126,17 @@ BOOST_AUTO_TEST_CASE(chunked_body)
 	BOOST_TEST(traits.count == 4);
 	BOOST_TEST(traits.head_count == 1);
 }
+BOOST_AUTO_TEST_CASE(chunked_body_error)
+{
+	test_acceptor traits;
+	acceptor_t acceptor( &traits );
+	traits.error_check = [&traits](const http1_msg_t& header, const auto& body) {
+		BOOST_TEST(traits.count == 0);
+		BOOST_TEST(traits.head_count == 1);
+	};
+	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nTransfer-Encoding: chunked\r\n\r\n\r\nok"sv);
+	BOOST_TEST(traits.error_count == 1);
+}
 BOOST_AUTO_TEST_CASE(head_limit_overflow)
 {
 	test_acceptor traits;
@@ -161,6 +180,69 @@ BOOST_AUTO_TEST_CASE(head_by_peaces)
 	BOOST_TEST(traits.head_count == 0);
 }
 BOOST_AUTO_TEST_SUITE_END() // request
+
+BOOST_AUTO_TEST_SUITE(response)
+using acceptor_t = http_parser::http1_resp_acceptor<std::pmr::vector, std::pmr::string, 100, 100>;
+using http1_msg_t = acceptor_t::message_t;
+struct test_acceptor : acceptor_t::traits_type {
+	std::size_t count = 0;
+	std::size_t head_count = 0;
+	std::size_t data_created_count = 0;
+	std::size_t headers_created_count = 0;
+	std::function<void(const http1_msg_t& req_head_message)> head_check;
+	std::function<void(const http1_msg_t& req_head_message, const data_view& body)> check;
+
+	std::pmr::string create_data_container() override { ++data_created_count; return std::pmr::string{}; }
+	http1_msg_t::headers_container create_headers_container() override {
+		++headers_created_count;
+		return http1_msg_t::headers_container{};
+	}
+
+	void on_head(const http1_msg_t& head) override { ++head_count; if(head_check) head_check(head); }
+	void on_message(const http1_msg_t& head, const data_view& body) override {
+		++count;
+		if(check) check(head, body);
+	}
+};
+BOOST_AUTO_TEST_CASE(simple_haed)
+{
+	test_acceptor traits;
+	acceptor_t acceptor( &traits );
+	traits.check = [](const http1_msg_t& header, const auto& body) {
+		BOOST_TEST(header.head().code == 300);
+		BOOST_TEST(header.head().reason == "TEST"sv);
+		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
+		BOOST_TEST(header.headers().headers().size() == 1);
+		BOOST_TEST(body.size() == 0);
+	};
+	acceptor("HTTP/1.1 300 TEST\r\nH1:v1\r\n\r\n"sv);
+	BOOST_TEST(traits.count == 1);
+	BOOST_TEST(traits.head_count == 0);
+}
+BOOST_AUTO_TEST_CASE(simple_body)
+{
+	test_acceptor traits;
+	acceptor_t acceptor( &traits );
+	traits.check = [&traits](const http1_msg_t& header, const auto& body) {
+		BOOST_TEST(header.head().code == 250);
+		BOOST_TEST(header.head().reason == "OK"sv);
+		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
+		BOOST_TEST(header.headers().headers().size() == 2);
+		BOOST_TEST(body.size() == 2);
+		BOOST_TEST(body == "ok"sv);
+	};
+	traits.head_check = [&traits](const http1_msg_t& header) {
+		BOOST_TEST(header.head().code == 250);
+		BOOST_TEST(header.head().reason == "OK"sv);
+		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
+		BOOST_TEST(header.headers().headers().size() == 2);
+		BOOST_TEST(header.headers().content_size().value() == 2);
+	};
+	acceptor("HTTP/1.1 250 OK\r\nH1:v1\r\nContent-Length: 2\r\n\r\nok_extra"sv);
+	BOOST_TEST(traits.count == 1);
+	BOOST_TEST(traits.head_count == 1);
+}
+BOOST_AUTO_TEST_SUITE_END() // response
 
 BOOST_AUTO_TEST_SUITE_END() // acceptor
 BOOST_AUTO_TEST_SUITE_END() // core

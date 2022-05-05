@@ -26,18 +26,62 @@ struct http1_acceptor_traits {
 	virtual typename Head::headers_container create_headers_container() =0 ;
 
 	virtual void on_head(const Head& head) {}
-	virtual void on_request(const Head& head, const data_view& body) {}
+	virtual void on_message(const Head& head, const data_view& body) {}
+	virtual void on_error(const Head& head, const data_view& body) {}
+};
+
+
+template<
+        template<class> class Container,
+        typename DataContainer
+        >
+class http1_req_base_acceptor {
+public:
+	using message_t = http1_message<Container,  req_head_message, DataContainer>;
+protected:
+	template<typename HeadParser>
+	bool parser_head_base(message_t& msg, HeadParser& prs) const
+	{
+		auto st = prs();
+		if(st == http1_head_state::wait) return false;
+		if(st != http1_head_state::http1_req)
+			throw std::runtime_error("request was await");
+		msg.head() = prs.req_msg();
+		return true;
+	}
+};
+
+template<
+        template<class> class Container,
+        typename DataContainer
+        >
+class http1_resp_base_acceptor {
+public:
+	using message_t = http1_message<Container,  resp_head_message, DataContainer>;
+protected:
+	template<typename HeadParser>
+	bool parser_head_base(message_t& msg, HeadParser& prs) const
+	{
+		auto st = prs();
+		if(st == http1_head_state::wait) return false;
+		if(st != http1_head_state::http1_resp)
+			throw std::runtime_error("request was await");
+		msg.head() = prs.resp_msg();
+		return true;
+	}
 };
 
 template<
         template<class> class Container,
         typename DataContainer,
+        template<template<class> class,class> class BaseAcceptor,
         std::size_t max_body_size = 4 * 1024,
         std::size_t max_head_size = 1 * 1024
         >
-class http1_req_acceptor final {
+class http1_acceptor final : protected BaseAcceptor<Container, DataContainer> {
+	using base_acceptor_t = BaseAcceptor<Container, DataContainer>;
 public:
-	using message_t = http1_message<Container, req_head_message, DataContainer>;
+	using message_t = base_acceptor_t::message_t;
 	using traits_type = http1_acceptor_traits<message_t, DataContainer>;
 private:
 	enum class state_t { wait, head, headers, body, finish };
@@ -48,7 +92,7 @@ private:
 	basic_position_string_view<DataContainer> head_view;
 	basic_position_string_view<DataContainer> body_view;
 
-	message_t result_request;
+	message_t result_msg;
 
 	headers_parser<DataContainer, Container> parser_hrds;
 
@@ -56,41 +100,38 @@ private:
 		assert(traits);
 		head_view.reset();
 		http1_request_head_parser prs(head_view);
-		auto st = prs();
-		if(st == http1_head_state::wait) return;
-		if(st != http1_head_state::http1_req)
-			throw std::runtime_error("request was await");
-		cur_state = state_t::head;
-		result_request.head() = prs.req_msg();
-		parser_hrds.skip_first_bytes(prs.end_position());
+		if(base_acceptor_t::parser_head_base(result_msg, prs)) {
+			cur_state = state_t::head;
+			parser_hrds.skip_first_bytes(prs.end_position());
+		}
 	}
 	void parse_headers() {
 		parser_hrds();
 		require_head_limit(parser_hrds.finish_position());
 		if(!parser_hrds.is_finished()) return;
-		result_request.headers() = parser_hrds.extract_result();
+		result_msg.headers() = parser_hrds.extract_result();
 		cur_state = state_t::headers;
 	}
 	void headers_ready() {
-		const bool body_exists = result_request.headers().body_exists();
+		const bool body_exists = result_msg.headers().body_exists();
 		move_to_body_container(parser_hrds.finish_position());
-		if(body_exists) traits->on_head(result_request);
-		else traits->on_request( result_request, body_view );
+		if(body_exists) traits->on_head(result_msg);
+		else traits->on_message( result_msg, body_view );
 		cur_state = body_exists ? state_t::body : state_t::finish;
 	}
 	void parse_body() {
 		body_view.advance_to_end();
-		if(auto size=result_request.headers().content_size(); size) {
+		if(auto size=result_msg.headers().content_size(); size) {
 			if(*size <= body_view.size()) {
 				body_view.resize(*size);
-				traits->on_request(result_request, body_view);
+				traits->on_message(result_msg, body_view);
 				cur_state = state_t::finish;
 			}
-		} else if(result_request.headers().is_chunked()) {
+		} else if(result_msg.headers().is_chunked()) {
 			chunked_body_parser prs(body_view);
 			while(prs()) {
-				if(prs.ready()) traits->on_request(result_request, prs.result());
-				else if(prs.error()) traits->on_request(result_request, head_view);
+				if(prs.error()) traits->on_error(result_msg, body_view);
+				else if(prs.ready()) traits->on_message(result_msg, prs.result());
 			}
 			clean_body(prs.end_pos());
 			if(prs.finish()) cur_state = state_t::finish;
@@ -131,13 +172,13 @@ private:
 			    throw std::out_of_range("maximum head size reached"s);
 	}
 public:
-	http1_req_acceptor(traits_type* traits)
+	http1_acceptor(traits_type* traits)
 	    : traits(traits)
 	    , data(traits->create_data_container())
 	    , body_data(traits->create_data_container())
 	    , head_view(&data, 0, 0)
 	    , body_view(&body_data, 0, 0)
-	    , result_request(&data)
+	    , result_msg(&data)
 	    , parser_hrds(&data, traits->create_headers_container())
 	{}
 
@@ -155,87 +196,20 @@ public:
 	}
 };
 
-
-template<template<class> class Container, typename DataContainer>
-struct acceptor_traits {
-	virtual ~acceptor_traits() noexcept =default ;
-	virtual void on_http1_request(
-	        const http1_message<Container, req_head_message, DataContainer>& header,
-	        const DataContainer& body) {}
-	virtual void on_http1_response() {}
-	virtual DataContainer create_data_container() =0 ;
-};
+template<
+        template<class> class Container,
+        typename DataContainer,
+        std::size_t max_body_size = 4 * 1024,
+        std::size_t max_head_size = 1 * 1024
+        >
+using http1_req_acceptor = http1_acceptor<Container, DataContainer, http1_req_base_acceptor, max_body_size, max_head_size>;
 
 template<
         template<class> class Container,
-        typename DataContainer
+        typename DataContainer,
+        std::size_t max_body_size = 4 * 1024,
+        std::size_t max_head_size = 1 * 1024
         >
-class acceptor final {
-public:
-	using traits_type = acceptor_traits<Container, DataContainer>;
-	using request_head = req_head_message<DataContainer>;
-	using response_head = resp_head_message<DataContainer>;
-
-	using http1_message_t = http1_message<Container, req_head_message, DataContainer>;
-private:
-	traits_type* traits;
-	enum class state_t { start, wait, http1, http2, websocket, headers, body };
-
-	state_t cur_state = state_t::start;
-	DataContainer data, body;
-	basic_position_string_view<DataContainer> parsing;
-
-	std::variant<request_head, response_head> result_head;
-	http1_message_t result_request;
-
-	void create_container()
-	{
-		if(cur_state != state_t::start) return;
-		data = traits->create_data_container();
-		cur_state = state_t::wait;
-	}
-
-	void determine()
-	{
-		assert(traits);
-		basic_position_string_view view(&data);
-		http1_request_head_parser prs(view);
-		auto st = prs();
-		if(st == http1_head_state::http1_resp) {
-			cur_state = state_t::http1;
-			result_head = prs.resp_msg();
-			traits->on_http1_response();
-			cur_state = state_t::headers;
-			parsing = parsing.substr(prs.end_position());
-		}
-		else if(st == http1_head_state::http1_req) {
-			cur_state = state_t::http1;
-			result_request.head() = prs.req_msg();
-			traits->on_http1_request(result_request, body);
-			cur_state = state_t::headers;
-			parsing = parsing.substr(prs.end_position());
-		}
-	}
-
-	void parse_headers()
-	{
-	}
-public:
-	acceptor(traits_type* traits)
-	    : traits(traits)
-	    , data(traits->create_data_container())
-	    , body(traits->create_data_container())
-	    , parsing(&data)
-	    , result_head(request_head{&data})
-	    , result_request(&body)
-	{}
-
-	template<typename S>
-	void operator()(S&& buf){
-		create_container();
-		for(auto& s:buf) { data.push_back((typename DataContainer::value_type) s); }
-		if(cur_state == state_t::wait) determine();
-	}
-};
+using http1_resp_acceptor = http1_acceptor<Container, DataContainer, http1_resp_base_acceptor, max_body_size, max_head_size>;
 
 } // namespace http_parser
