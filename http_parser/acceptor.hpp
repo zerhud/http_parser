@@ -54,9 +54,10 @@ private:
 
 	void parse_head() {
 		assert(traits);
+		head_view.reset();
 		http1_request_head_parser prs(head_view);
 		auto st = prs();
-//		if(st == http1_head_state::wait) return;
+		if(st == http1_head_state::wait) return;
 		if(st != http1_head_state::http1_req)
 			throw std::runtime_error("request was await");
 		cur_state = state_t::head;

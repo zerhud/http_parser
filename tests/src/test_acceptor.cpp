@@ -139,6 +139,27 @@ BOOST_AUTO_TEST_CASE(body_limit_overflow)
 	                       ""sv) );
 	BOOST_CHECK_THROW( acceptor("0034567890123456789012345678901234567890"sv), std::out_of_range);
 }
+BOOST_AUTO_TEST_CASE(head_by_peaces)
+{
+	test_acceptor traits;
+	acceptor_t acceptor( &traits );
+	traits.check = [](const http1_msg_t& header, const auto& body) {
+		BOOST_TEST(header.head().method() == "DELETE"sv);
+		BOOST_TEST(header.head().url().uri() == "/path"sv);
+		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
+		BOOST_TEST(header.headers().headers().size() == 1);
+		BOOST_TEST(body.size() == 0);
+	};
+	acceptor("DELETE /path "sv);
+	BOOST_TEST(traits.count == 0);
+	acceptor("HTTP/1.1\r\nH"sv);
+	BOOST_TEST(traits.count == 0);
+	acceptor("1:v1\r\n\r"sv);
+	BOOST_TEST(traits.count == 0);
+	acceptor("\n"sv);
+	BOOST_TEST(traits.count == 1);
+	BOOST_TEST(traits.head_count == 0);
+}
 BOOST_AUTO_TEST_SUITE_END() // request
 
 BOOST_AUTO_TEST_SUITE_END() // acceptor
