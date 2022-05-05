@@ -5,6 +5,7 @@
 #include <boost/test/unit_test.hpp>
 #include <http_parser/utils/headers_parser.hpp>
 #include <http_parser/utils/http1_head_parsers.hpp>
+#include <http_parser/utils/chunked_body_parser.hpp>
 
 using namespace std::literals;
 namespace utf = boost::unit_test_framework;
@@ -241,5 +242,27 @@ BOOST_AUTO_TEST_CASE(speed, * utf::enable_if<enable_speed_tests>())
 	BOOST_TEST(std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() < 2'000);
 }
 BOOST_AUTO_TEST_SUITE_END() // headers
+BOOST_AUTO_TEST_SUITE(chunked_body)
+BOOST_AUTO_TEST_CASE(simple)
+{
+	std::string data = "2\r\noka\r\n12345678901\r\na";
+	http_parser::basic_position_string_view view(&data);
+	http_parser::chunked_body_parser prs(view);
+	for(std::size_t i=1;i<4;++i) {
+		BOOST_TEST(prs() == true);
+		BOOST_TEST(prs.waiting() == false);
+		if(i == 1) BOOST_TEST(prs.result() == "ok"sv);
+		if(i == 2) BOOST_TEST(prs.result() == "1234567890"sv);
+		if(i == 3) BOOST_TEST(prs.result() == "a"sv);
+	}
+
+	BOOST_TEST(prs() == true);
+	BOOST_TEST(prs.waiting() == true);
+
+	data += "0\r\n";
+	BOOST_TEST(prs() == false);
+	BOOST_TEST(prs.waiting() == false);
+}
+BOOST_AUTO_TEST_SUITE_END() // chunked_body
 BOOST_AUTO_TEST_SUITE_END() // http1_parsers
 BOOST_AUTO_TEST_SUITE_END() // core
