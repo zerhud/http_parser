@@ -27,6 +27,15 @@ BOOST_AUTO_TEST_CASE(url)
 	msg.url(4,24);
 	BOOST_TEST(msg.url().path() == "/path/to/resource"sv);
 }
+BOOST_AUTO_TEST_CASE(string_view_and_relocation_bug)
+{
+	std::string data = "GET /path/to/resource?a=b HTTP/1.1\r\n"s;
+	req_head_message msg(&data);
+	msg.url(4,24);
+	BOOST_TEST(msg.url().path() == "/path/to/resource"sv);
+	data += "123456789012345678901234567890"s;
+	BOOST_TEST(msg.url().path() == "/path/to/resource"sv);
+}
 BOOST_AUTO_TEST_CASE(method)
 {
 	std::string data = "GET /path/to/resource?a=b HTTP/1.1\r\n"s;

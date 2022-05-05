@@ -86,15 +86,22 @@ public:
 private:
 	const DataContainer* data_;
 	container_view method_;
-	url_view url_;
+	container_view url_src_;
+	mutable url_view url_;
 public:
-	req_head_message(const DataContainer* d) : data_(d), method_(data_, 0, 0) {}
+	req_head_message(const DataContainer* d)
+	    : data_(d)
+	    , method_(data_, 0, 0)
+	    , url_src_(data_, 0, 0)
+	{}
 
-	const url_view& url() const  { return url_; }
+	const url_view& url() const  {
+		url_.uri( (inner_string_view)url_src_ );
+		return url_;
+	}
 	auto& url(std::size_t pos, std::size_t size)
 	{
-		container_view tmp_view(data_, pos, size);
-		url_.uri( (inner_string_view)tmp_view );
+		url_src_.assign(pos, size);
 		return *this;
 	}
 
