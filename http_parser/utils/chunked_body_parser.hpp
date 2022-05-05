@@ -16,7 +16,7 @@ namespace http_parser {
 
 template<typename Container>
 class chunked_body_parser {
-	enum class state_t { wait, size, body, finish };
+	enum class state_t { wait, size, body, finish, error };
 	typedef bool (chunked_body_parser::*parse_fnc)();
 
 	basic_position_string_view<Container> src, body;
@@ -25,7 +25,7 @@ class chunked_body_parser {
 
 	state_t cur_state = state_t::size;
 
-	std::array<parse_fnc, 4> parse_funcs;
+	std::array<parse_fnc, 5> parse_funcs;
 
 	void init_parse()
 	{
@@ -33,6 +33,7 @@ class chunked_body_parser {
 		parse_funcs[static_cast<std::size_t>(state_t::size)] = &chunked_body_parser::psize;
 		parse_funcs[static_cast<std::size_t>(state_t::body)] = &chunked_body_parser::pbody;
 		parse_funcs[static_cast<std::size_t>(state_t::finish)] = &chunked_body_parser::plast;
+		parse_funcs[static_cast<std::size_t>(state_t::error)] = &chunked_body_parser::plast;
 	}
 
 	void parse()
@@ -49,14 +50,18 @@ class chunked_body_parser {
 	}
 	bool psize() {
 		auto npos = find((std::uint64_t*)src.data(), src.size(), (std::uint8_t)'\n');
-		if(npos < 2 || npos == src.size()) return false;
+		if(npos == 0 || src.size() <= npos) return false;
+		if(npos < 2) {
+			cur_state = state_t::error;
+			return false;
+		}
 		body_size = to_int(src.substr(0, npos-1));
 		src = src.substr(npos);
 		cur_state = state_t::body;
 		return true;
 	}
 	bool pbody() {
-		if(src.size() < body_size) return false;
+		if(src.size() <= body_size) return false;
 		body = src.substr(1, body_size);
 		src = src.substr(body_size + 1);
 		cur_state = body_size == 0 ? state_t::finish : state_t::wait;
@@ -84,7 +89,7 @@ public:
 
 	bool ready() const
 	{
-		return cur_state == state_t::wait || cur_state == state_t::finish;
+		return cur_state == state_t::wait || state_t::finish <= cur_state ;
 	}
 
 	basic_position_string_view<Container> result() const
@@ -94,7 +99,12 @@ public:
 
 	bool finish() const
 	{
-		return cur_state == state_t::finish;
+		return state_t::finish <= cur_state;
+	}
+
+	bool error() const
+	{
+		return cur_state == state_t::error;
 	}
 };
 

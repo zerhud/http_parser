@@ -276,6 +276,63 @@ BOOST_AUTO_TEST_CASE(simple)
 	BOOST_TEST(prs.finish() == true);
 	BOOST_TEST(prs.ready() == true);
 }
+BOOST_AUTO_TEST_CASE(by_peaces)
+{
+	std::string data = "1\r\na2";
+	http_parser::basic_position_string_view view(&data);
+	http_parser::chunked_body_parser prs(view);
+	prs();
+	BOOST_TEST(prs.ready() == true);
+	BOOST_TEST(prs.finish() == false);
+	BOOST_TEST(prs.result() == "a"sv);
+
+	prs();
+	BOOST_TEST(prs.ready() == false);
+
+	data += "\r"sv;
+	prs();
+	BOOST_TEST(prs.ready() == false);
+
+	data += "\n"sv;
+	prs();
+	BOOST_TEST(prs.ready() == false);
+
+	data += "o"sv;
+	prs();
+	BOOST_TEST(prs.ready() == false);
+
+	data += "k"sv;
+	prs();
+	BOOST_TEST(prs.ready() == true);
+	BOOST_TEST(prs.result() == "ok"sv);
+
+	data += "0"sv;
+	prs();
+	BOOST_TEST(prs.ready() == false);
+
+	data += "\r"sv;
+	prs();
+	BOOST_TEST(prs.ready() == false);
+	BOOST_TEST(prs.finish() == false);
+
+	data += "\n"sv;
+	prs();
+	BOOST_TEST(prs.ready() == true);
+	BOOST_TEST(prs.finish() == true);
+	BOOST_TEST(prs.result() == ""sv);
+
+}
+BOOST_AUTO_TEST_CASE(wrong)
+{
+	std::string data = "\r\na";
+	http_parser::basic_position_string_view view(&data);
+	http_parser::chunked_body_parser prs(view);
+	prs();
+	BOOST_TEST(prs.ready() == true);
+	BOOST_TEST(prs.finish() == true);
+	BOOST_TEST(prs.error() == true);
+	BOOST_TEST(prs.result() == ""sv);
+}
 BOOST_AUTO_TEST_SUITE_END() // chunked_body
 BOOST_AUTO_TEST_SUITE_END() // http1_parsers
 BOOST_AUTO_TEST_SUITE_END() // core
