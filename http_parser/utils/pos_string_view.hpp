@@ -76,6 +76,7 @@ public:
 	basic_position_string_view<Container> substr(std::size_t p) const
 	{
 		basic_position_string_view<Container> ret(src);
+		assert( this->pos + p <= src->size() );
 		ret.pos = this->pos + p;
 		ret.advance_to_end();
 		return ret;
@@ -115,7 +116,7 @@ public:
 	const value_type* data() const
 	{
 		assert(src != nullptr);
-		assert(pos < src->size());
+		assert(pos <= src->size());
 		return src->data() + pos;
 	}
 
@@ -166,14 +167,18 @@ public:
 	std::basic_string_view<C> as() const
 	{
 		if(!src) return std::basic_string_view<C>{};
-		assert( pos < src->size() && pos + len <= src->size() );
-		return std::basic_string_view<C>{ (const C*)src->data() + pos, len };
+		if( pos < src->size() && pos + len <= src->size() )
+			return std::basic_string_view<C>{ (const C*)src->data() + pos, len };
+		return std::basic_string_view<C>{ };
+
 	}
 
 	operator std_string_view() const
 	{
 		if(!src) return std_string_view{};
-		return std_string_view{src->data() + pos, len};
+		if( pos < src->size() && pos + len <= src->size() )
+			return std_string_view{src->data() + pos, len};
+		return std_string_view{};
 	}
 };
 

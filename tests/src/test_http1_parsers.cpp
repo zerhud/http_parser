@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <boost/test/unit_test.hpp>
+#include <http_parser/utils/find.hpp>
 #include <http_parser/utils/headers_parser.hpp>
 #include <http_parser/utils/http1_head_parsers.hpp>
 #include <http_parser/utils/chunked_body_parser.hpp>
@@ -248,20 +249,32 @@ BOOST_AUTO_TEST_CASE(simple)
 	std::string data = "2\r\noka\r\n12345678901\r\na";
 	http_parser::basic_position_string_view view(&data);
 	http_parser::chunked_body_parser prs(view);
+	BOOST_TEST(prs.finish() == false);
+	BOOST_TEST(prs.ready() == false);
 	for(std::size_t i=1;i<4;++i) {
-		BOOST_TEST(prs() == true);
-		BOOST_TEST(prs.waiting() == false);
-		if(i == 1) BOOST_TEST(prs.result() == "ok"sv);
-		if(i == 2) BOOST_TEST(prs.result() == "1234567890"sv);
-		if(i == 3) BOOST_TEST(prs.result() == "a"sv);
+		BOOST_TEST_CONTEXT("i == " << i) {
+			BOOST_TEST(prs() == true);
+			BOOST_TEST(prs.finish() == false);
+			BOOST_TEST(prs.ready() == true);
+			if(i == 1) BOOST_TEST(prs.result() == "ok"sv);
+			if(i == 2) BOOST_TEST(prs.result() == "1234567890"sv);
+			if(i == 3) BOOST_TEST(prs.result() == "a"sv);
+		}
 	}
 
-	BOOST_TEST(prs() == true);
-	BOOST_TEST(prs.waiting() == true);
+	BOOST_TEST(prs() == false);
+	BOOST_TEST(prs.ready() == false);
+	BOOST_TEST(prs.finish() == false);
 
 	data += "0\r\n";
+	BOOST_TEST(prs() == true);
+	BOOST_TEST(prs.result() == ""sv);
+	BOOST_TEST(prs.finish() == true);
+	BOOST_TEST(prs.ready() == true);
+
 	BOOST_TEST(prs() == false);
-	BOOST_TEST(prs.waiting() == false);
+	BOOST_TEST(prs.finish() == true);
+	BOOST_TEST(prs.ready() == true);
 }
 BOOST_AUTO_TEST_SUITE_END() // chunked_body
 BOOST_AUTO_TEST_SUITE_END() // http1_parsers
