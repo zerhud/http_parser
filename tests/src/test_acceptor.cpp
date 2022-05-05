@@ -80,22 +80,42 @@ BOOST_AUTO_TEST_CASE(chunked_body)
 	acceptor_t acceptor( &traits );
 	traits.check = [&traits](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(traits.head_count == 1);
-		if(traits.count == 1) {
-			BOOST_TEST(body.size() == 2);
-			BOOST_TEST(body == "ok"sv);
-		} else if(traits.count == 2) {
-			BOOST_TEST(body.size() == 10);
-			BOOST_TEST(body == "0123456789A"sv);
-		} else {
-			BOOST_FAIL("the count is "s + std::to_string(traits.count));
+		BOOST_TEST_CONTEXT("current count " << traits.count) {
+			if(traits.count == 1) {
+				BOOST_TEST(body.size() == 2);
+				BOOST_TEST(body == "ok"sv);
+			} else if(traits.count == 2) {
+				BOOST_TEST(body.size() == 10);
+				BOOST_TEST(body == "1234567890"sv);
+			} else if(traits.count == 3) {
+				BOOST_TEST(body.size() == 1);
+				BOOST_TEST(body == "1"sv);
+			} else if(traits.count == 4) {
+				BOOST_TEST(body.size() == 0);
+				BOOST_TEST(body == ""sv);
+			} else {
+				BOOST_FAIL("the count is "s << traits.count << ' ' << body);
+			}
 		}
 	};
 	traits.head_check = [&traits](const http1_msg_t& header) {
 		BOOST_TEST(traits.count == 0);
 		BOOST_TEST(header.headers().is_chunked() == true);
 	};
-	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nokA\r\n0123456789A"sv);
-	BOOST_TEST(traits.count == 1);
+	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nokA\r\n12345678901"sv);
+	BOOST_TEST(traits.count == 2);
+	BOOST_TEST(traits.head_count == 1);
+
+	acceptor("\r\n"sv);
+	BOOST_TEST(traits.count == 2);
+	BOOST_TEST(traits.head_count == 1);
+
+	acceptor("10\r"sv);
+	BOOST_TEST(traits.count == 3);
+	BOOST_TEST(traits.head_count == 1);
+
+	acceptor("\n"sv);
+	BOOST_TEST(traits.count == 4);
 	BOOST_TEST(traits.head_count == 1);
 }
 BOOST_AUTO_TEST_SUITE_END() // request

@@ -21,7 +21,7 @@ class chunked_body_parser {
 
 	basic_position_string_view<Container> src, body;
 	bool wait = true, last_chunk = false;
-	std::size_t last_pos=0, body_size = 0;
+	std::size_t last_pos=0, last_size_pos=0, body_size = 0;
 
 	state_t cur_state = state_t::size;
 
@@ -56,6 +56,7 @@ class chunked_body_parser {
 			return false;
 		}
 		body_size = to_int(src.substr(0, npos-1));
+		last_size_pos = npos;
 		src = src.substr(npos);
 		cur_state = state_t::body;
 		return true;
@@ -64,6 +65,7 @@ class chunked_body_parser {
 		if(src.size() <= body_size) return false;
 		body = src.substr(1, body_size);
 		src = src.substr(body_size + 1);
+		last_pos += body_size + 1 + last_size_pos;
 		cur_state = body_size == 0 ? state_t::finish : state_t::wait;
 		return false;
 	}
@@ -72,7 +74,7 @@ class chunked_body_parser {
 	}
 public:
 	chunked_body_parser(basic_position_string_view<Container> data)
-	    : src(data.underlying_container())
+	    : src(data)
 	    , body(data)
 	{
 		init_parse();
@@ -105,6 +107,11 @@ public:
 	bool error() const
 	{
 		return cur_state == state_t::error;
+	}
+
+	std::size_t end_pos() const
+	{
+		return last_pos;
 	}
 };
 

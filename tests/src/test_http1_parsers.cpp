@@ -285,41 +285,50 @@ BOOST_AUTO_TEST_CASE(by_peaces)
 	BOOST_TEST(prs.ready() == true);
 	BOOST_TEST(prs.finish() == false);
 	BOOST_TEST(prs.result() == "a"sv);
+	BOOST_TEST(prs.end_pos() == 4);
 
 	prs();
 	BOOST_TEST(prs.ready() == false);
+	BOOST_TEST(prs.end_pos() == 4);
 
 	data += "\r"sv;
 	prs();
 	BOOST_TEST(prs.ready() == false);
+	BOOST_TEST(prs.end_pos() == 4);
 
 	data += "\n"sv;
 	prs();
 	BOOST_TEST(prs.ready() == false);
+	BOOST_TEST(prs.end_pos() == 4);
 
 	data += "o"sv;
 	prs();
 	BOOST_TEST(prs.ready() == false);
+	BOOST_TEST(prs.end_pos() == 4);
 
 	data += "k"sv;
 	prs();
 	BOOST_TEST(prs.ready() == true);
 	BOOST_TEST(prs.result() == "ok"sv);
+	BOOST_TEST(prs.end_pos() == 9);
 
 	data += "0"sv;
 	prs();
 	BOOST_TEST(prs.ready() == false);
+	BOOST_TEST(prs.end_pos() == 9);
 
 	data += "\r"sv;
 	prs();
 	BOOST_TEST(prs.ready() == false);
 	BOOST_TEST(prs.finish() == false);
+	BOOST_TEST(prs.end_pos() == 9);
 
 	data += "\n"sv;
 	prs();
 	BOOST_TEST(prs.ready() == true);
 	BOOST_TEST(prs.finish() == true);
 	BOOST_TEST(prs.result() == ""sv);
+	BOOST_TEST(prs.end_pos() == 12);
 
 }
 BOOST_AUTO_TEST_CASE(wrong)

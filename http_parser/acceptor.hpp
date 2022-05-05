@@ -11,6 +11,7 @@
 #include "message.hpp"
 #include "utils/headers_parser.hpp"
 #include "utils/http1_head_parsers.hpp"
+#include "utils/chunked_body_parser.hpp"
 
 namespace http_parser {
 
@@ -82,7 +83,12 @@ private:
 				cur_state = state_t::finish;
 			}
 		} else if(result_request.headers().is_chunked()) {
-			;
+			chunked_body_parser prs(body_view);
+			while(prs()) {
+				if(prs.ready()) traits->on_request(result_request, prs.result());
+				else if(prs.error()) traits->on_request(result_request, head_view);
+			}
+			body_view = body_view.substr(prs.end_pos());
 		}
 	}
 public:
