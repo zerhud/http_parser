@@ -77,6 +77,7 @@ private:
 		body_view.advance_to_end();
 		if(auto size=result_request.headers().content_size(); size) {
 			if(*size <= body_view.size()) {
+				body_view.resize(*size);
 				traits->on_request(result_request, body_view);
 				cur_state = state_t::finish;
 			}
