@@ -15,6 +15,7 @@ BOOST_AUTO_TEST_SUITE(request)
 using parser_t = http_parser::http1_req_parser<std::pmr::vector, std::pmr::string, 100, 100>;
 using http1_msg_t = parser_t::message_t;
 struct test_acceptor : parser_t::traits_type {
+	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
 	std::size_t count = 0;
 	std::size_t head_count = 0;
 	std::size_t error_count = 0;
@@ -23,10 +24,10 @@ struct test_acceptor : parser_t::traits_type {
 	std::function<void(const http1_msg_t& req_head_message)> head_check;
 	std::function<void(const http1_msg_t& req_head_message, const data_view& body)> check, error_check;
 
-	std::pmr::string create_data_container() override { ++data_created_count; return std::pmr::string{}; }
+	std::pmr::string create_data_container() override { ++data_created_count; return std::pmr::string{ mem }; }
 	http1_msg_t::headers_container create_headers_container() override {
 		++headers_created_count;
-		return http1_msg_t::headers_container{};
+		return http1_msg_t::headers_container{ mem };
 	}
 
 	void on_head(const http1_msg_t& head) override { ++head_count; if(head_check) head_check(head); }
@@ -200,6 +201,41 @@ BOOST_AUTO_TEST_CASE(head_by_peaces)
 	acceptor("\n"sv);
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 0);
+}
+BOOST_AUTO_TEST_CASE(memory)
+{
+	struct raii {
+		raii() {
+			std::pmr::set_default_resource(std::pmr::null_memory_resource());
+		}
+		~raii() {
+			std::pmr::set_default_resource(std::pmr::new_delete_resource());
+		}
+	} mr_setter;
+	test_acceptor traits;
+	traits.mem = std::pmr::new_delete_resource();
+	parser_t acceptor( &traits );
+	traits.check = [&traits](const http1_msg_t& header, const auto& body) {
+		BOOST_TEST(traits.head_count == 1);
+		BOOST_TEST(header.head().method() == "POST"sv);
+		BOOST_TEST(header.head().url().uri() == "/pa/th?a=b"sv);
+		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
+		BOOST_TEST(header.headers().headers().size() == 2);
+		BOOST_TEST(body.size() == 2);
+		BOOST_TEST(body == "ok"sv);
+	};
+	traits.head_check = [&traits](const http1_msg_t& header) {
+		BOOST_TEST(traits.count == 0);
+		BOOST_TEST(header.head().method() == "POST"sv);
+		BOOST_TEST(header.head().url().uri() == "/pa/th?a=b"sv);
+		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
+		BOOST_TEST(header.headers().headers().size() == 2);
+		BOOST_TEST(header.headers().content_size().value() == 2);
+	};
+	BOOST_TEST_CHECKPOINT("start parse");
+	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nok_extra"sv);
+	BOOST_TEST(traits.count == 1);
+	BOOST_TEST(traits.head_count == 1);
 }
 BOOST_AUTO_TEST_SUITE_END() // request
 

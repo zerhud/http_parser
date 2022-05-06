@@ -37,7 +37,14 @@ public:
 	    , headers_(std::forward<Args>(args)...)
 	{}
 
-	headers_container headers() const { return headers_; }
+	header_message& operator = (const header_message& other)
+	{
+		data_ = other.data_;
+		for(auto& h:other.headers_) headers_.emplace_back(h);
+		return *this;
+	}
+
+	const headers_container& headers() const { return headers_; }
 	void add_header_name(std::size_t pos, std::size_t size)
 	{
 		headers_.emplace_back(data_).name.assign(pos, size);
@@ -136,10 +143,11 @@ private:
 	Head<DataContainer> head_;
 	header_message_t headers_;
 public:
-	http1_message(const DataContainer* d)
+	template<typename ... Args>
+	http1_message(const DataContainer* d, Args... args)
 	    : data(d)
 	    , head_(d)
-	    , headers_(d)
+	    , headers_(d, std::forward<Args>(args)...)
 	{}
 
 	Head<DataContainer>& head() { return head_; }

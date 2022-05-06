@@ -109,7 +109,7 @@ private:
 		parser_hrds();
 		require_head_limit(parser_hrds.finish_position());
 		if(!parser_hrds.is_finished()) return;
-		result_msg.headers() = parser_hrds.extract_result();
+		result_msg.headers() = parser_hrds.result();
 		cur_state = state_t::headers;
 	}
 	void headers_ready() {
@@ -187,7 +187,7 @@ public:
 	    , body_data(traits->create_data_container())
 	    , head_view(&data, 0, 0)
 	    , body_view(&body_data, 0, 0)
-	    , result_msg(&data)
+	    , result_msg(&data, traits->create_headers_container())
 	    , parser_hrds(&data, traits->create_headers_container())
 	{}
 

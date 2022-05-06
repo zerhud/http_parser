@@ -144,7 +144,7 @@ BOOST_AUTO_TEST_CASE(common)
 	http_parser::headers_parser<std::string, std::vector> prs(view);
 	BOOST_TEST( prs() == data.size() );
 	BOOST_TEST(prs.is_finished() == true);
-	auto res = prs.extract_result();
+	auto& res = prs.result();
 	BOOST_TEST_REQUIRE(res.headers().size() == 2);
 	BOOST_TEST(res.find_header("Name").value() == "value"sv);
 	BOOST_TEST(res.find_header("other").value() == "v"sv);
@@ -187,7 +187,7 @@ BOOST_AUTO_TEST_CASE(by_pieces)
 	http_parser::basic_position_string_view data_view(&data, old, 4);
 	BOOST_TEST( data_view == "body"sv );
 
-	auto res = prs.extract_result();
+	auto& res = prs.result();
 	BOOST_TEST_REQUIRE(res.headers().size() == 2);
 	BOOST_TEST(res.find_header("name").value() == "val"sv);
 	BOOST_TEST(res.find_header("n2").value() == "v"sv);
@@ -199,7 +199,7 @@ BOOST_AUTO_TEST_CASE(single)
 	http_parser::headers_parser<std::string, std::vector> prs(view);
 	BOOST_TEST(prs() == data.size());
 	BOOST_TEST(prs.is_finished() == true);
-	auto res = prs.extract_result();
+	auto& res = prs.result();
 	BOOST_TEST_REQUIRE(res.headers().size() == 1);
 	BOOST_TEST(res.find_header("name").value() == "value"sv);
 }
@@ -211,7 +211,7 @@ BOOST_AUTO_TEST_CASE(skip_first_bytes)
 	prs.skip_first_bytes(7);
 	BOOST_TEST(prs() == data.size());
 	BOOST_TEST(prs.is_finished() == true);
-	auto res = prs.extract_result();
+	auto& res = prs.result();
 	BOOST_TEST_REQUIRE(res.headers().size() == 1);
 	BOOST_TEST(res.headers()[0].name == "name"sv);
 }
@@ -226,7 +226,7 @@ BOOST_AUTO_TEST_CASE(skip_first_bytes_steps)
 	data += "gename:value\r\n\r\n"s;
 	BOOST_TEST(prs() == data.size());
 	BOOST_TEST(prs.is_finished() == true);
-	auto res = prs.extract_result();
+	auto& res = prs.result();
 	BOOST_TEST_REQUIRE(res.headers().size() == 1);
 	BOOST_TEST(res.headers()[0].name == "name"sv);
 }

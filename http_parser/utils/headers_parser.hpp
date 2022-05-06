@@ -20,7 +20,7 @@ private:
 	typedef void (headers_parser::*parse_fnc)();
 	enum state_t { name, space, value, finish } ;
 
-	result_type result;
+	result_type result_msg;
 	state_t cur_state = state_t::name;
 	std::size_t cur_pos = 0;
 	std::size_t switch_pos = 0;
@@ -63,7 +63,7 @@ private:
 		else {
 			auto pos = find_colon();
 			if(pos != 0) {
-				result.add_header_name(switch_pos, pos-switch_pos);
+				result_msg.add_header_name(switch_pos, pos-switch_pos);
 				cur_pos = pos;
 				silent_to_state(state_t::space);
 			}
@@ -80,7 +80,7 @@ private:
 	{
 		auto pos = find_r();
 		if(pos != 0) {
-			result.last_header_value(switch_pos, pos-switch_pos);
+			result_msg.last_header_value(switch_pos, pos-switch_pos);
 			cur_pos = pos + 2;
 			silent_to_state(state_t::name);
 		}
@@ -91,7 +91,7 @@ private:
 public:
 	template<typename ... Args>
 	headers_parser(container_view data, Args... args)
-	    : result(data.underlying_container(), std::forward<Args>(args)...)
+	    : result_msg(data.underlying_container(), std::forward<Args>(args)...)
 	    , source(data)
 	{
 		init_srates();
@@ -121,7 +121,7 @@ public:
 	}
 
 	[[nodiscard]]
-	result_type extract_result() { return result; }
+	const result_type& result() const { return result_msg; }
 };
 
 } // namespace http_parser
