@@ -121,21 +121,10 @@ private:
 	}
 	void parse_body() {
 		body_view.advance_to_end();
-		if(auto size=result_msg.headers().content_size(); size) {
-			if(*size <= body_view.size()) {
-				body_view.resize(*size);
-				traits->on_message(result_msg, body_view);
-				cur_state = state_t::finish;
-			}
-		} else if(result_msg.headers().is_chunked()) {
-			chunked_body_parser prs(body_view);
-			while(prs()) {
-				if(prs.error()) traits->on_error(result_msg, body_view);
-				else if(prs.ready()) traits->on_message(result_msg, prs.result());
-			}
-			clean_body(prs.end_pos());
-			if(prs.finish()) cur_state = state_t::finish;
-		}
+		if(auto size=result_msg.headers().content_size(); size)
+			parse_single_body(*size);
+		else if(result_msg.headers().is_chunked())
+			parse_chunked_body();
 	}
 
 	void clean_body(std::size_t actual_pos)
@@ -145,6 +134,26 @@ private:
 			body.push_back(body_data[i]);
 		body_data = std::move(body);
 		body_view.reset();
+	}
+
+	void parse_single_body(std::size_t size)
+	{
+		if(size <= body_view.size()) {
+			body_view.resize(size);
+			traits->on_message(result_msg, body_view);
+			cur_state = state_t::finish;
+		}
+	}
+
+	void parse_chunked_body()
+	{
+		chunked_body_parser prs(body_view);
+		while(prs()) {
+			if(prs.error()) traits->on_error(result_msg, body_view);
+			else if(prs.ready()) traits->on_message(result_msg, prs.result());
+		}
+		clean_body(prs.end_pos());
+		if(prs.finish()) cur_state = state_t::finish;
 	}
 
 	void move_to_body_container(std::size_t start)
