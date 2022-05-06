@@ -65,7 +65,7 @@ protected:
 		auto st = prs();
 		if(st == http1_head_state::wait) return false;
 		if(st != http1_head_state::http1_resp)
-			throw std::runtime_error("request was await");
+			throw std::runtime_error("response was await");
 		msg.head() = prs.resp_msg();
 		return true;
 	}
