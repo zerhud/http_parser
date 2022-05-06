@@ -17,10 +17,10 @@ namespace http_parser {
 
 
 template<typename Head, typename DataContainer>
-struct http1_acceptor_traits {
+struct http1_parser_traits {
 	using data_view = basic_position_string_view<DataContainer>;
 
-	virtual ~http1_acceptor_traits () noexcept =default ;
+	virtual ~http1_parser_traits () noexcept =default ;
 
 	virtual DataContainer create_data_container() =0 ;
 	virtual typename Head::headers_container create_headers_container() =0 ;
@@ -35,7 +35,7 @@ template<
         template<class> class Container,
         typename DataContainer
         >
-class http1_req_base_acceptor {
+class http1_req_base_parser {
 public:
 	using message_t = http1_message<Container,  req_head_message, DataContainer>;
 protected:
@@ -55,7 +55,7 @@ template<
         template<class> class Container,
         typename DataContainer
         >
-class http1_resp_base_acceptor {
+class http1_resp_base_parser {
 public:
 	using message_t = http1_message<Container,  resp_head_message, DataContainer>;
 protected:
@@ -78,11 +78,11 @@ template<
         std::size_t max_body_size = 4 * 1024,
         std::size_t max_head_size = 1 * 1024
         >
-class http1_acceptor final : protected BaseAcceptor<Container, DataContainer> {
+class http1_parser final : protected BaseAcceptor<Container, DataContainer> {
 	using base_acceptor_t = BaseAcceptor<Container, DataContainer>;
 public:
 	using message_t = base_acceptor_t::message_t;
-	using traits_type = http1_acceptor_traits<message_t, DataContainer>;
+	using traits_type = http1_parser_traits<message_t, DataContainer>;
 private:
 	enum class state_t { wait, head, headers, body, finish };
 
@@ -181,7 +181,7 @@ private:
 			    throw std::out_of_range("maximum head size reached"s);
 	}
 public:
-	http1_acceptor(traits_type* traits)
+	http1_parser(traits_type* traits)
 	    : traits(traits)
 	    , data(traits->create_data_container())
 	    , body_data(traits->create_data_container())
@@ -211,7 +211,7 @@ template<
         std::size_t max_body_size = 4 * 1024,
         std::size_t max_head_size = 1 * 1024
         >
-using http1_req_acceptor = http1_acceptor<Container, DataContainer, http1_req_base_acceptor, max_body_size, max_head_size>;
+using http1_req_parser = http1_parser<Container, DataContainer, http1_req_base_parser, max_body_size, max_head_size>;
 
 template<
         template<class> class Container,
@@ -219,6 +219,6 @@ template<
         std::size_t max_body_size = 4 * 1024,
         std::size_t max_head_size = 1 * 1024
         >
-using http1_resp_acceptor = http1_acceptor<Container, DataContainer, http1_resp_base_acceptor, max_body_size, max_head_size>;
+using http1_resp_parser = http1_parser<Container, DataContainer, http1_resp_base_parser, max_body_size, max_head_size>;
 
 } // namespace http_parser

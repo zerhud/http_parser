@@ -1,19 +1,20 @@
 #define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE acceptor
+#define BOOST_TEST_MODULE parser
 
 #include <chrono>
 #include <memory_resource>
 #include <boost/test/unit_test.hpp>
-#include <http_parser/acceptor.hpp>
+#include <http_parser/parser.hpp>
+#include <http_parser.hpp>
 
 using namespace std::literals;
 
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(acceptor)
 BOOST_AUTO_TEST_SUITE(request)
-using acceptor_t = http_parser::http1_req_acceptor<std::pmr::vector, std::pmr::string, 100, 100>;
-using http1_msg_t = acceptor_t::message_t;
-struct test_acceptor : acceptor_t::traits_type {
+using parser_t = http_parser::http1_req_parser<std::pmr::vector, std::pmr::string, 100, 100>;
+using http1_msg_t = parser_t::message_t;
+struct test_acceptor : parser_t::traits_type {
 	std::size_t count = 0;
 	std::size_t head_count = 0;
 	std::size_t error_count = 0;
@@ -45,7 +46,7 @@ struct test_acceptor : acceptor_t::traits_type {
 BOOST_AUTO_TEST_CASE(head)
 {
 	test_acceptor traits;
-	acceptor_t acceptor( &traits );
+	parser_t acceptor( &traits );
 	traits.check = [](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(header.head().method() == "DELETE"sv);
 		BOOST_TEST(header.head().url().uri() == "/path"sv);
@@ -60,7 +61,7 @@ BOOST_AUTO_TEST_CASE(head)
 BOOST_AUTO_TEST_CASE(simple_body)
 {
 	test_acceptor traits;
-	acceptor_t acceptor( &traits );
+	parser_t acceptor( &traits );
 	traits.check = [&traits](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(traits.head_count == 1);
 		BOOST_TEST(header.head().method() == "POST"sv);
@@ -85,7 +86,7 @@ BOOST_AUTO_TEST_CASE(simple_body)
 BOOST_AUTO_TEST_CASE(chunked_body)
 {
 	test_acceptor traits;
-	acceptor_t acceptor( &traits );
+	parser_t acceptor( &traits );
 	traits.check = [&traits](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(traits.head_count == 1);
 		BOOST_TEST_CONTEXT("current count " << traits.count) {
@@ -129,7 +130,7 @@ BOOST_AUTO_TEST_CASE(chunked_body)
 BOOST_AUTO_TEST_CASE(chunked_body_trash)
 {
 	test_acceptor traits;
-	acceptor_t acceptor( &traits );
+	parser_t acceptor( &traits );
 	traits.check = [&traits](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(traits.head_count == 1);
 		BOOST_TEST_CONTEXT("current count " << traits.count) {
@@ -150,7 +151,7 @@ BOOST_AUTO_TEST_CASE(chunked_body_trash)
 BOOST_AUTO_TEST_CASE(chunked_body_error)
 {
 	test_acceptor traits;
-	acceptor_t acceptor( &traits );
+	parser_t acceptor( &traits );
 	traits.error_check = [&traits](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(traits.count == 0);
 		BOOST_TEST(traits.head_count == 1);
@@ -161,7 +162,7 @@ BOOST_AUTO_TEST_CASE(chunked_body_error)
 BOOST_AUTO_TEST_CASE(head_limit_overflow)
 {
 	test_acceptor traits;
-	acceptor_t acceptor( &traits );
+	parser_t acceptor( &traits );
 	BOOST_CHECK_THROW( acceptor(
 	                       "POST /p HTTP/1.1\r\n"
 	                       "H1:1234567890123456789012345678901234567890"
@@ -171,7 +172,7 @@ BOOST_AUTO_TEST_CASE(head_limit_overflow)
 BOOST_AUTO_TEST_CASE(body_limit_overflow)
 {
 	test_acceptor traits;
-	acceptor_t acceptor( &traits );
+	parser_t acceptor( &traits );
 	BOOST_CHECK_NO_THROW( acceptor(
 	                       "POST /p HTTP/1.1\r\nContent-Length: 120\r\n\r\n"
 	                       "1234567890123456789012345678901234567890"
@@ -182,7 +183,7 @@ BOOST_AUTO_TEST_CASE(body_limit_overflow)
 BOOST_AUTO_TEST_CASE(head_by_peaces)
 {
 	test_acceptor traits;
-	acceptor_t acceptor( &traits );
+	parser_t acceptor( &traits );
 	traits.check = [](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(header.head().method() == "DELETE"sv);
 		BOOST_TEST(header.head().url().uri() == "/path"sv);
@@ -203,9 +204,9 @@ BOOST_AUTO_TEST_CASE(head_by_peaces)
 BOOST_AUTO_TEST_SUITE_END() // request
 
 BOOST_AUTO_TEST_SUITE(response)
-using acceptor_t = http_parser::http1_resp_acceptor<std::pmr::vector, std::pmr::string, 100, 100>;
-using http1_msg_t = acceptor_t::message_t;
-struct test_acceptor : acceptor_t::traits_type {
+using parser_t = http_parser::http1_resp_parser<std::pmr::vector, std::pmr::string, 100, 100>;
+using http1_msg_t = parser_t::message_t;
+struct test_acceptor : parser_t::traits_type {
 	std::size_t count = 0;
 	std::size_t head_count = 0;
 	std::size_t data_created_count = 0;
@@ -228,7 +229,7 @@ struct test_acceptor : acceptor_t::traits_type {
 BOOST_AUTO_TEST_CASE(simple_haed)
 {
 	test_acceptor traits;
-	acceptor_t acceptor( &traits );
+	parser_t acceptor( &traits );
 	traits.check = [](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(header.head().code == 300);
 		BOOST_TEST(header.head().reason == "TEST"sv);
@@ -243,7 +244,7 @@ BOOST_AUTO_TEST_CASE(simple_haed)
 BOOST_AUTO_TEST_CASE(simple_body)
 {
 	test_acceptor traits;
-	acceptor_t acceptor( &traits );
+	parser_t acceptor( &traits );
 	traits.check = [&traits](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(header.head().code == 250);
 		BOOST_TEST(header.head().reason == "OK"sv);
