@@ -23,7 +23,6 @@ endmacro()
 
 add_unit_test(uri_parser)
 add_unit_test(request_generator)
-add_unit_test(response_parser)
 add_unit_test(pos_string_view)
 add_unit_test(messages)
 add_unit_test(http1_parsers)
