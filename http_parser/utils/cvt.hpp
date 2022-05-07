@@ -30,10 +30,10 @@ inline std::int8_t ascii_to_int(S s)
 	return 0;
 }
 
-template<typename StringView>
-inline std::int64_t to_int(StringView src, std::uint8_t base=10)
+template<typename StringView, typename Int = std::int64_t>
+inline Int to_int(StringView src, std::uint8_t base=10)
 {
-	std::int64_t ret = 0;
+	Int ret = 0;
 	std::int8_t sign = 1;
 	if(!src.empty()) {
 		std::size_t i=0;
@@ -121,8 +121,9 @@ String& format_from_url(String& to, View from)
 			to.push_back( (typename String::value_type) from[i] );
 		else  {
 			std::basic_string_view<typename View::value_type> view(&from[i+1], 2);
-			to.push_back( to_int(view, 16) );
+			to.push_back( to_int<View, typename String::value_type>(view, 16) );
 			i+=2;
+			assert( i < from.size() );
 		}
 	}
 	return to;
