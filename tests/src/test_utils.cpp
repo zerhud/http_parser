@@ -35,6 +35,12 @@ BOOST_AUTO_TEST_CASE(to_str_16)
 	BOOST_TEST(to_str16c<std::string>(0x00) == "0"s);
 
 	BOOST_CHECK(to_str16c<std::wstring>(-0xABCD) == L"-abcd"s);
+	BOOST_CHECK(to_str16c<std::wstring>(-0xABCD) == L"-abcd"s);
+
+	std::string to;
+	BOOST_TEST(to_str16((std::uint16_t)11, to, true) == "000b");
+	to.clear();
+	BOOST_TEST(to_str16((std::uint8_t)11, to, true) == "0b");
 }
 
 BOOST_AUTO_TEST_CASE(is_hex)
@@ -53,7 +59,24 @@ BOOST_AUTO_TEST_CASE(is_hex)
 	BOOST_TEST(is_hex_digit('G') == false);
 	BOOST_TEST(is_hex_digit(';') == false);
 	BOOST_TEST(is_hex_digit('z') == false);
+}
 
+BOOST_AUTO_TEST_CASE(to_url_form)
+{
+	using http_parser::format_to_url;
+	std::string to;
+	BOOST_TEST(format_to_url(to, "a?\n"sv) == "a%3f%0a"sv);
+	to.clear();
+	BOOST_TEST(format_to_url(to, "ъ"sv) == "%d1%8a"sv);
+}
+
+BOOST_AUTO_TEST_CASE(from_url_form)
+{
+	using http_parser::format_from_url;
+	std::string to;
+	BOOST_TEST(format_from_url(to, "a%3f%0a"sv) == "a?\n");
+	to.clear();
+	BOOST_TEST(format_from_url(to, "%d1%8a"sv) == "ъ");
 }
 
 BOOST_AUTO_TEST_SUITE_END() // utils

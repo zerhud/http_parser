@@ -45,7 +45,7 @@ inline std::int64_t to_int(StringView src, std::uint8_t base=10)
 }
 
 template<typename S, typename I>
-inline void to_str16(I src, S& to)
+inline S& to_str16(I src, S& to, bool add_leading_zero = false)
 {
 	static_assert(
 	    std::endian::native == std::endian::big || std::endian::native == std::endian::little,
@@ -56,7 +56,7 @@ inline void to_str16(I src, S& to)
 	}
 	static const std::array<char,16> symbols = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 	std::byte* walker = (std::byte*)&src;
-	bool leading_zero = true;
+	bool leading_zero = !add_leading_zero;
 	if constexpr (std::endian::native == std::endian::big) {
 		for(std::size_t i=0;i<sizeof(I);++i) {
 			auto a = (typename S::value_type)symbols[std::size_t(walker[i] & (std::byte)0x0F)];
@@ -78,6 +78,8 @@ inline void to_str16(I src, S& to)
 	}
 
 	if(to.empty()) to.push_back((typename S::value_type)'0');
+
+	return to;
 }
 
 template<typename S, typename I, typename ... Args>
@@ -98,18 +100,32 @@ bool is_url_allowed_symbol(C c)
 }
 
 template<typename String, typename View>
-void format_to_url(String& to, View from)
+String& format_to_url(String& to, View from)
 {
 	for(std::size_t i=0;i<from.size();++i) {
 		if(from[i] == 0x20) to.push_back(0x2B);
 		else if(is_url_allowed_symbol(from[i])) to.push_back(from[i]);
-		else to.push_back(0x25);
+		else {
+			to.push_back(0x25);
+			to_str16((std::uint8_t)from[i], to, true);
+		}
 	}
+	return to;
 }
 
 template<typename String, typename View>
-void format_from_url(String& to, View from)
+String& format_from_url(String& to, View from)
 {
+	for(std::size_t i=0;i<from.size();++i) {
+		if(from[i] != (typename View::value_type)'%')
+			to.push_back( (typename String::value_type) from[i] );
+		else  {
+			std::basic_string_view<typename View::value_type> view(&from[i+1], 2);
+			to.push_back( to_int(view, 16) );
+			i+=2;
+		}
+	}
+	return to;
 }
 
 } // namespace http_parser
