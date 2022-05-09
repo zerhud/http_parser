@@ -154,5 +154,16 @@ BOOST_AUTO_TEST_CASE(methods)
 	BOOST_TEST(to_string_view(http_parser::methods::trace) == "TRACE");
 	BOOST_TEST(to_string_view(http_parser::methods::patch) == "PATCH");
 }
+BOOST_AUTO_TEST_CASE(response)
+{
+	using namespace http_parser;
+	request_generator gen;
+	gen.response("300", "ok").header("test", "value");
+	BOOST_TEST(gen.body("content"sv) == "HTTP/1.1 300 ok\r\n"
+	                              "test: value\r\n"
+	                              "Content-Length: 7\r\n\r\n"
+	                              "content\r\n"
+	           );
+}
 BOOST_AUTO_TEST_SUITE_END() // generator
 BOOST_AUTO_TEST_SUITE_END() // core

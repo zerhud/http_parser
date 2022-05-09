@@ -5,8 +5,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ENABLE_SPEED_TESTS "compile and execute speed tests" ON)
+remove_definitions(_GLIBCXX_DEBUG _GLIBCXX_DEBUG_PEDANTIC)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 find_package(Boost COMPONENTS unit_test_framework REQUIRED)
+find_package(Threads REQUIRED)
 
 macro(add_exe name)
 	add_executable(${name} src/${name}.cpp)
@@ -28,3 +31,8 @@ add_unit_test(messages)
 add_unit_test(http1_parsers)
 add_unit_test(parser)
 add_unit_test(utils)
+add_unit_test(integrated)
+
+find_package(Boost COMPONENTS fiber context REQUIRED)
+
+target_link_libraries(test_integrated PRIVATE ${Boost_LIBRARIES} Threads::Threads)

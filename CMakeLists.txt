@@ -13,7 +13,7 @@ option(USE_LIBCXX_DEBUG "enable glibcxx debug" ON)
 
 if(USE_LIBCXX_DEBUG AND "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 	message("=== use debug version of libcxx")
-	add_compile_definitions(_GLIBCXX_DEBUG _GLIBCXX_DEBUG_PEDANTIC)
+        #add_compile_definitions(_GLIBCXX_DEBUG _GLIBCXX_DEBUG_PEDANTIC)
 endif()
 
 include(GNUInstallDirs)

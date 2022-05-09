@@ -163,6 +163,15 @@ public:
 		return *this;
 	}
 
+	basic_request_generator& response(StringView code, StringView r)
+	{
+		auto int_code = to_int(code, 10);
+		if(int_code < 100 || 999 < int_code)
+			throw std::runtime_error("this code are not allowed in response");
+		append(head, "HTTP/1.1 ", code, ' ', r, 0x0d, 0x0a);
+		return *this;
+	}
+
 	basic_request_generator& uri(StringView u)
 	{
 		head.clear();
