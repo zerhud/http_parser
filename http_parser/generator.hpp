@@ -14,6 +14,15 @@
 
 namespace http_parser {
 
+namespace details {
+
+template<class,template<class>class>
+struct is_instance : std::false_type {};
+template<class T, template<class>class U>
+struct is_instance<U<T>, U> : std::true_type {};
+
+} // namespace details
+
 enum class methods { get, head, post, put, delete_method, connect, trace, patch };
 inline std::string_view to_string_view(methods m)
 {
@@ -46,6 +55,9 @@ header(const char*, const char*) -> header<std::string_view>;
 
 template<typename Container, typename StringView>
 class basic_generator {
+	template<typename T>
+	struct cvt_int{ T value; int base = 10; };
+
 	enum class state_t { simple, chunked, chunked_progress };
 	std::pmr::memory_resource* mem;
 	Container headers;
@@ -74,7 +86,11 @@ class basic_generator {
 	}
 
 	template<typename T>
-	requires( !std::is_pointer_v<T> && !std::is_same_v<std::decay_t<T>, Container> )
+	requires(
+	        !std::is_pointer_v<T>
+	     && !std::is_same_v<std::decay_t<T>, Container>
+	     && !details::is_instance<T, cvt_int>::value
+	        )
 	void append(Container& con, T val) const
 	{
 		con.push_back((typename Container::value_type)val);
@@ -85,6 +101,15 @@ class basic_generator {
 	void append(Container& con, const T& val) const
 	{
 		for(auto& v:val) con.push_back(v);
+	}
+
+	template<typename T>
+	void append(Container& con, cvt_int<T> num) const {
+		std::array<char, std::numeric_limits<T>::digits10 + 1> str;
+		auto [ptr, ec] = std::to_chars(str.data(), str.data() + str.size(), num.value, num.base);
+		assert(ec == std::errc());
+		std::string_view str_num(str.data(), ptr);
+		append(con, str_num);
 	}
 
 	auto create_headers() const
@@ -99,13 +124,8 @@ class basic_generator {
 	Container create_simple_body(Src cnt) const
 	{
 		Container ret = create_headers();
-		if(cnt.size() != 0) {
-			std::array<char, std::numeric_limits<std::size_t>::digits10 + 1> str;
-			auto [ptr, ec] = std::to_chars(str.data(), str.data() + str.size(), cnt.size(), 10);
-			assert(ec == std::errc());
-			std::string_view len(str.data(), ptr);
-			append(ret, "Content-Length: ", len, "\r\n\r\n", cnt);
-		}
+		if(cnt.size() != 0)
+			append(ret, "Content-Length: ", cvt_int{ cnt.size() }, "\r\n\r\n", cnt);
 		append(ret, "\r\n");
 		return ret;
 	}
@@ -114,15 +134,8 @@ class basic_generator {
 	Container create_chunked_body(Src cnt) const
 	{
 		Container ret{ mem };
-		if(cnt.size() == 0) {
-			append(ret, "0\r\n");
-		} else {
-			std::array<char, std::numeric_limits<std::size_t>::digits10 + 1> str;
-			auto [ptr, ec] = std::to_chars(str.data(), str.data() + str.size(), cnt.size(), 16);
-			assert(ec == std::errc());
-			std::string_view len(str.data(), ptr);
-			append(ret, len, "\r\n", cnt);
-		}
+		if(cnt.size() == 0) append(ret, "0\r\n");
+		else append(ret, cvt_int{ cnt.size(), 16 }, "\r\n", cnt);
 		append(ret, "\r\n");
 		return ret;
 	}
@@ -163,12 +176,11 @@ public:
 		return *this;
 	}
 
-	basic_generator& response(StringView code, StringView r)
+	basic_generator& response(int code, StringView r)
 	{
-		auto int_code = to_int(code, 10);
-		if(int_code < 100 || 999 < int_code)
+		if(code < 100 || 999 < code)
 			throw std::runtime_error("this code are not allowed in response");
-		append(head, "HTTP/1.1 ", code, ' ', r, 0x0d, 0x0a);
+		append(head, "HTTP/1.1 ", cvt_int{code}, ' ', r, 0x0d, 0x0a);
 		return *this;
 	}
 

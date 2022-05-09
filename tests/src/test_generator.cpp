@@ -158,7 +158,7 @@ BOOST_AUTO_TEST_CASE(response)
 {
 	using namespace http_parser;
 	request_generator gen;
-	gen.response("300", "ok").header("test", "value");
+	gen.response(300, "ok").header("test", "value");
 	BOOST_TEST(gen.body("content"sv) == "HTTP/1.1 300 ok\r\n"
 	                              "test: value\r\n"
 	                              "Content-Length: 7\r\n\r\n"
