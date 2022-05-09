@@ -8,7 +8,7 @@
  *************************************************************************/
 
 #include "http_parser/utils/pos_string_view.hpp"
-#include "http_parser/request_generator.hpp"
+#include "http_parser/generator.hpp"
 #include "http_parser/uri_parser.hpp"
 #include "http_parser/parser.hpp"
 
@@ -20,7 +20,7 @@ constexpr std::size_t default_max_head_size = 1 * 1024;
 namespace pmr_vec {
 using data_type = std::pmr::vector<std::byte>;
 using uri_parser = http_parser::basic_uri_parser<std::string_view>;
-using request_generator = http_parser::basic_request_generator<data_type, std::string_view>;
+using generator = http_parser::basic_generator<data_type, std::string_view>;
 
 template<typename Head>
 struct http1_acceptor_traits : http_parser::http1_parser_traits<Head, data_type> {
@@ -42,7 +42,7 @@ namespace pmr_str {
 using data_type = std::pmr::string;
 using uri_parser = http_parser::basic_uri_parser<std::string_view>;
 using uri_wparser = http_parser::basic_uri_parser<std::wstring_view>;
-using request_generator = http_parser::basic_request_generator<data_type, std::string_view>;
+using generator = http_parser::basic_generator<data_type, std::string_view>;
 
 template<typename Head>
 struct http1_acceptor_traits : http_parser::http1_parser_traits<Head, data_type> {
@@ -62,7 +62,7 @@ using http1_resp_parser = http_parser::http1_resp_parser<std::pmr::vector, data_
 
 using pmr_vec::data_type;
 using pmr_vec::uri_parser;
-using pmr_vec::request_generator;
+using pmr_vec::generator;
 
 using pos_string_view = basic_position_string_view<std::pmr::string>;
 using pos_data_view = basic_position_string_view<std::pmr::vector<std::byte>>;

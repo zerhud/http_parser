@@ -45,7 +45,7 @@ struct header {
 header(const char*, const char*) -> header<std::string_view>;
 
 template<typename Container, typename StringView>
-class basic_request_generator {
+class basic_generator {
 	enum class state_t { simple, chunked, chunked_progress };
 	std::pmr::memory_resource* mem;
 	Container headers;
@@ -146,9 +146,9 @@ class basic_request_generator {
 		throw std::logic_error("inner error (not all state supported)");
 	}
 public:
-	basic_request_generator()
-		: basic_request_generator(std::pmr::get_default_resource()) {}
-	basic_request_generator(std::pmr::memory_resource* mem)
+	basic_generator()
+		: basic_generator(std::pmr::get_default_resource()) {}
+	basic_generator(std::pmr::memory_resource* mem)
 		: mem(mem)
 		, headers(mem)
 		, head(mem)
@@ -157,13 +157,13 @@ public:
 			"cannot create generator without memory resource");
 	}
 
-	basic_request_generator& method(methods m)
+	basic_generator& method(methods m)
 	{
 		cur_method = m;
 		return *this;
 	}
 
-	basic_request_generator& response(StringView code, StringView r)
+	basic_generator& response(StringView code, StringView r)
 	{
 		auto int_code = to_int(code, 10);
 		if(int_code < 100 || 999 < int_code)
@@ -172,7 +172,7 @@ public:
 		return *this;
 	}
 
-	basic_request_generator& uri(StringView u)
+	basic_generator& uri(StringView u)
 	{
 		head.clear();
 		basic_uri_parser<StringView> prs(u);
@@ -185,7 +185,7 @@ public:
 		return *this;
 	}
 
-	basic_request_generator& header(StringView name, StringView val)
+	basic_generator& header(StringView name, StringView val)
 	{
 		append(headers, name, 0x3A, 0x20, val, 0x0D, 0x0A);
 		return *this;
@@ -206,7 +206,7 @@ public:
 		return cur_state == state_t::chunked || cur_state == state_t::chunked_progress;
 	}
 
-	basic_request_generator& make_chunked()
+	basic_generator& make_chunked()
 	{
 		if(!chunked())
 			header("Transfer-Encoding", "chunked");
@@ -216,15 +216,15 @@ public:
 };
 
 template<typename C, typename S>
-inline basic_request_generator<C,S>&
-operator << (basic_request_generator<C,S>& left, const uri<S>& right)
+inline basic_generator<C,S>&
+operator << (basic_generator<C,S>& left, const uri<S>& right)
 {
 	return left.uri(right.u);
 }
 
 template<typename C, typename S>
-inline basic_request_generator<C,S>&
-operator << (basic_request_generator<C,S>& left, const header<S>& right)
+inline basic_generator<C,S>&
+operator << (basic_generator<C,S>& left, const header<S>& right)
 {
 	return left.header(right.n, right.v);
 }

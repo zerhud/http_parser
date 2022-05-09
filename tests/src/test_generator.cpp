@@ -1,8 +1,8 @@
 #define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE request_generator
+#define BOOST_TEST_MODULE generator
 
 #include <boost/test/unit_test.hpp>
-#include <http_parser/request_generator.hpp>
+#include <http_parser/generator.hpp>
 
 using namespace std::literals;
 
@@ -18,7 +18,7 @@ void check_string(std::string_view result, std::string_view right)
 
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(generator)
-using request_generator = http_parser::basic_request_generator<std::pmr::string, std::string_view>;
+using request_generator = http_parser::basic_generator<std::pmr::string, std::string_view>;
 BOOST_AUTO_TEST_SUITE(simple)
 BOOST_AUTO_TEST_CASE(example)
 {
@@ -48,7 +48,7 @@ BOOST_AUTO_TEST_CASE(example)
 }
 BOOST_AUTO_TEST_CASE(example_data_vec)
 {
-	using request_generator = http_parser::basic_request_generator<
+	using request_generator = http_parser::basic_generator<
 	    std::pmr::vector<std::byte>, std::string_view>;
 	using namespace http_parser;
 	request_generator gen;

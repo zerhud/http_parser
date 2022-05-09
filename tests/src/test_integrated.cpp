@@ -117,7 +117,7 @@ struct parser_traits : req_parser::traits_type {
 	void on_message(const message_t& head, const data_view& body) {
 		*gotten_data = body.as<char>();
 		if(writer) {
-			http_parser::pmr_str::request_generator gen;
+			http_parser::pmr_str::generator gen;
 			writer( gen.response("200"sv, "ok"sv).body("wow, it works"sv) );
 		}
 	}
