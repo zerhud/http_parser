@@ -74,7 +74,7 @@ BOOST_AUTO_TEST_CASE(empty)
 	header_message<std::pmr::vector, std::string> msg(&data, mem);
 	BOOST_TEST(msg.empty() == true);
 	BOOST_TEST( msg.find_header("H").has_value() == false );
-	BOOST_TEST( msg.headers().size() == 0 );
+	BOOST_TEST( msg.size() == 0 );
 }
 BOOST_AUTO_TEST_CASE(container)
 {
@@ -95,18 +95,16 @@ BOOST_AUTO_TEST_CASE(search)
 
 	BOOST_CHECK_NO_THROW( msg.add_header_name(0, 1) );
 	BOOST_TEST(msg.empty() == false);
-	BOOST_TEST( msg.headers().size() == 1 );
+	BOOST_TEST( msg.size() == 1 );
 	BOOST_TEST( msg.find_header("H").value() == ""sv );
 
 	BOOST_CHECK_NO_THROW( msg.last_header_value(3, 1) );
 	BOOST_TEST( msg.find_header("H").value() == "1"sv );
-
-	BOOST_TEST( msg.headers().at(0).name == "H"sv );
-	BOOST_TEST( msg.headers().at(0).value == "1"sv );
+	BOOST_TEST( msg.size() == 1 );
 
 	BOOST_CHECK_NO_THROW( msg.add_header_name(6, 2) );
-	BOOST_TEST_REQUIRE( msg.headers().size() == 2 );
-	BOOST_TEST( msg.headers().at(1).name == "H2"sv );
+	BOOST_TEST_REQUIRE( msg.size() == 2 );
+	BOOST_TEST( msg.find_header("H2").value() == ""sv );
 }
 BOOST_AUTO_TEST_CASE(http_methods)
 {

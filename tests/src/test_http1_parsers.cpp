@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE(common)
 	BOOST_TEST( prs() == data.size() );
 	BOOST_TEST(prs.is_finished() == true);
 	auto& res = prs.result();
-	BOOST_TEST_REQUIRE(res.headers().size() == 2);
+	BOOST_TEST_REQUIRE(res.size() == 2);
 	BOOST_TEST(res.find_header("Name").value() == "value"sv);
 	BOOST_TEST(res.find_header("other").value() == "v"sv);
 }
@@ -188,7 +188,7 @@ BOOST_AUTO_TEST_CASE(by_pieces)
 	BOOST_TEST( data_view == "body"sv );
 
 	auto& res = prs.result();
-	BOOST_TEST_REQUIRE(res.headers().size() == 2);
+	BOOST_TEST_REQUIRE(res.size() == 2);
 	BOOST_TEST(res.find_header("name").value() == "val"sv);
 	BOOST_TEST(res.find_header("n2").value() == "v"sv);
 }
@@ -200,7 +200,7 @@ BOOST_AUTO_TEST_CASE(single)
 	BOOST_TEST(prs() == data.size());
 	BOOST_TEST(prs.is_finished() == true);
 	auto& res = prs.result();
-	BOOST_TEST_REQUIRE(res.headers().size() == 1);
+	BOOST_TEST_REQUIRE(res.size() == 1);
 	BOOST_TEST(res.find_header("name").value() == "value"sv);
 }
 BOOST_AUTO_TEST_CASE(skip_first_bytes)
@@ -212,8 +212,8 @@ BOOST_AUTO_TEST_CASE(skip_first_bytes)
 	BOOST_TEST(prs() == data.size());
 	BOOST_TEST(prs.is_finished() == true);
 	auto& res = prs.result();
-	BOOST_TEST_REQUIRE(res.headers().size() == 1);
-	BOOST_TEST(res.headers()[0].name == "name"sv);
+	BOOST_TEST_REQUIRE(res.size() == 1);
+	BOOST_TEST( res.find_header("name").value() == "value"sv );
 }
 BOOST_AUTO_TEST_CASE(skip_first_bytes_steps)
 {
@@ -227,8 +227,8 @@ BOOST_AUTO_TEST_CASE(skip_first_bytes_steps)
 	BOOST_TEST(prs() == data.size());
 	BOOST_TEST(prs.is_finished() == true);
 	auto& res = prs.result();
-	BOOST_TEST_REQUIRE(res.headers().size() == 1);
-	BOOST_TEST(res.headers()[0].name == "name"sv);
+	BOOST_TEST_REQUIRE(res.size() == 1);
+	BOOST_TEST( res.find_header("name").value() == "value"sv );
 }
 BOOST_AUTO_TEST_CASE(speed, * utf::enable_if<enable_speed_tests>())
 {

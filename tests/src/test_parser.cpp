@@ -52,7 +52,7 @@ BOOST_AUTO_TEST_CASE(head)
 		BOOST_TEST(header.head().method() == "DELETE"sv);
 		BOOST_TEST(header.head().url().uri() == "/path"sv);
 		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
-		BOOST_TEST(header.headers().headers().size() == 1);
+		BOOST_TEST(header.headers().size() == 1);
 		BOOST_TEST(body.size() == 0);
 	};
 	acceptor("DELETE /path HTTP/1.1\r\nH1:v1\r\n\r\n"sv);
@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(simple_body)
 		BOOST_TEST(header.head().method() == "POST"sv);
 		BOOST_TEST(header.head().url().uri() == "/pa/th?a=b"sv);
 		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
-		BOOST_TEST(header.headers().headers().size() == 2);
+		BOOST_TEST(header.headers().size() == 2);
 		BOOST_TEST(body.size() == 2);
 		BOOST_TEST(body == "ok"sv);
 	};
@@ -77,7 +77,7 @@ BOOST_AUTO_TEST_CASE(simple_body)
 		BOOST_TEST(header.head().method() == "POST"sv);
 		BOOST_TEST(header.head().url().uri() == "/pa/th?a=b"sv);
 		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
-		BOOST_TEST(header.headers().headers().size() == 2);
+		BOOST_TEST(header.headers().size() == 2);
 		BOOST_TEST(header.headers().content_size().value() == 2);
 	};
 	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nok_extra"sv);
@@ -189,7 +189,7 @@ BOOST_AUTO_TEST_CASE(head_by_peaces)
 		BOOST_TEST(header.head().method() == "DELETE"sv);
 		BOOST_TEST(header.head().url().uri() == "/path"sv);
 		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
-		BOOST_TEST(header.headers().headers().size() == 1);
+		BOOST_TEST(header.headers().size() == 1);
 		BOOST_TEST(body.size() == 0);
 	};
 	acceptor("DELETE /path "sv);
@@ -220,7 +220,7 @@ BOOST_AUTO_TEST_CASE(memory)
 		BOOST_TEST(header.head().method() == "POST"sv);
 		BOOST_TEST(header.head().url().uri() == "/pa/th?a=b"sv);
 		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
-		BOOST_TEST(header.headers().headers().size() == 2);
+		BOOST_TEST(header.headers().size() == 2);
 		BOOST_TEST(body.size() == 2);
 		BOOST_TEST(body == "ok"sv);
 	};
@@ -229,7 +229,7 @@ BOOST_AUTO_TEST_CASE(memory)
 		BOOST_TEST(header.head().method() == "POST"sv);
 		BOOST_TEST(header.head().url().uri() == "/pa/th?a=b"sv);
 		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
-		BOOST_TEST(header.headers().headers().size() == 2);
+		BOOST_TEST(header.headers().size() == 2);
 		BOOST_TEST(header.headers().content_size().value() == 2);
 	};
 	BOOST_TEST_CHECKPOINT("start parse");
@@ -270,7 +270,7 @@ BOOST_AUTO_TEST_CASE(simple_haed)
 		BOOST_TEST(header.head().code == 300);
 		BOOST_TEST(header.head().reason == "TEST"sv);
 		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
-		BOOST_TEST(header.headers().headers().size() == 1);
+		BOOST_TEST(header.headers().size() == 1);
 		BOOST_TEST(body.size() == 0);
 	};
 	acceptor("HTTP/1.1 300 TEST\r\nH1:v1\r\n\r\n"sv);
@@ -285,7 +285,7 @@ BOOST_AUTO_TEST_CASE(simple_body)
 		BOOST_TEST(header.head().code == 250);
 		BOOST_TEST(header.head().reason == "OK"sv);
 		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
-		BOOST_TEST(header.headers().headers().size() == 2);
+		BOOST_TEST(header.headers().size() == 2);
 		BOOST_TEST(body.size() == 2);
 		BOOST_TEST(body == "ok"sv);
 	};
@@ -293,7 +293,7 @@ BOOST_AUTO_TEST_CASE(simple_body)
 		BOOST_TEST(header.head().code == 250);
 		BOOST_TEST(header.head().reason == "OK"sv);
 		BOOST_TEST(header.find_header("H1").value() == "v1"sv);
-		BOOST_TEST(header.headers().headers().size() == 2);
+		BOOST_TEST(header.headers().size() == 2);
 		BOOST_TEST(header.headers().content_size().value() == 2);
 	};
 	acceptor("HTTP/1.1 250 OK\r\nH1:v1\r\nContent-Length: 2\r\n\r\nok_extra"sv);

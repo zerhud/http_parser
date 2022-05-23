@@ -92,13 +92,13 @@ struct asio_acceptor {
 
 		void do_accept()
 		{
-			    acceptor.async_accept( [this](auto ec, auto sock) {
-					    if(ec) err(std::move(ec));
-						else {
-							    hndl(std::move(sock));
-								do_accept();
-						}
-				} );
+			acceptor.async_accept( [this](auto ec, auto sock) {
+				if(ec) err(std::move(ec));
+				else {
+					hndl(std::move(sock));
+					do_accept();
+				}
+			} );
 		}
 };
 

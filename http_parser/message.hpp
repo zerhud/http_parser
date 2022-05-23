@@ -44,7 +44,6 @@ public:
 		return *this;
 	}
 
-	const headers_container& headers() const { return headers_; }
 	void add_header_name(std::size_t pos, std::size_t size)
 	{
 		headers_.emplace_back(data_).name.assign(pos, size);
@@ -54,6 +53,7 @@ public:
 		headers_.back().value.assign(pos, size);
 	}
 
+	std::size_t size() const { return headers_.size(); }
 	bool empty() const { return headers_.empty(); }
 	auto find_header(std::string_view v) const
 	{
