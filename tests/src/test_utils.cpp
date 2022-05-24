@@ -4,6 +4,7 @@
 #include <chrono>
 #include <boost/test/unit_test.hpp>
 #include <http_parser/utils/cvt.hpp>
+#include <http_parser/utils/inner_static_vector.hpp>
 
 using namespace std::literals;
 
@@ -78,5 +79,49 @@ BOOST_AUTO_TEST_CASE(from_url_form)
 	to.clear();
 	BOOST_TEST(format_from_url(to, "%d1%8a"sv) == "ъ");
 }
+
+BOOST_AUTO_TEST_SUITE(inner_vec)
+template<http_parser::static_arraible T, std::size_t L=100>
+using st_vec = http_parser::inner_static_vector<T, L>;
+BOOST_AUTO_TEST_CASE(emplace_back)
+{
+	st_vec<int,1> vec;
+	BOOST_TEST(vec.empty() == true);
+	BOOST_TEST(vec.size() == 0);
+	vec.emplace_back(0);
+	BOOST_TEST(vec.empty() == false);
+	BOOST_TEST(vec.size() == 1);
+	BOOST_TEST(vec[0] == 0);
+	BOOST_CHECK_THROW(vec.emplace_back(1), std::out_of_range);
+}
+BOOST_AUTO_TEST_CASE(ctor_back)
+{
+	struct foo {
+		int a;
+		std::size_t b;
+	};
+	st_vec<foo> vec;
+	vec.emplace_back( 1, 2 );
+	BOOST_TEST(vec.back().a == 1);
+	BOOST_TEST(vec.back().b == 2 );
+}
+BOOST_AUTO_TEST_CASE(begin_end)
+{
+	st_vec<int> vec;
+	vec.emplace_back(10);
+	vec.emplace_back(11);
+	vec.emplace_back(12);
+	auto pos = vec.begin();
+	BOOST_TEST(*pos == 10);
+	++pos;
+	BOOST_TEST(*pos == 11);
+	++pos;
+	BOOST_TEST(*pos == 12);
+	BOOST_CHECK(++pos == vec.end());
+	int right_val = 10;
+	for(auto& val:vec) BOOST_TEST(val == right_val++);
+	BOOST_TEST(right_val == 13);
+}
+BOOST_AUTO_TEST_SUITE_END() // inner_vec
 
 BOOST_AUTO_TEST_SUITE_END() // utils
