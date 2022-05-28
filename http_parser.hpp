@@ -31,10 +31,10 @@ struct http1_acceptor_traits : http_parser::http1_parser_traits<Head, data_type>
 };
 
 template<std::size_t max_body_size = default_max_body_size, std::size_t max_head_size = default_max_head_size>
-using http1_req_parser = http_parser::http1_req_parser<std::pmr::vector, data_type, max_body_size, max_head_size>;
+using http1_req_parser = http_parser::http1_req_parser<pmr_vector_factory, pmr_vector_t_factory<std::byte>, max_body_size, max_head_size>;
 
 template<std::size_t max_body_size = default_max_body_size, std::size_t max_head_size = default_max_head_size>
-using http1_resp_parser = http_parser::http1_resp_parser<std::pmr::vector, data_type, max_body_size, max_head_size>;
+using http1_resp_parser = http_parser::http1_resp_parser<pmr_vector_factory, pmr_vector_t_factory<std::byte>, max_body_size, max_head_size>;
 
 } // namespace pmr_vec
 
@@ -53,10 +53,10 @@ struct http1_acceptor_traits : http_parser::http1_parser_traits<Head, data_type>
 };
 
 template<std::size_t max_body_size = default_max_body_size, std::size_t max_head_size = default_max_head_size>
-using http1_req_parser = http_parser::http1_req_parser<std::pmr::vector, data_type, max_body_size, max_head_size>;
+using http1_req_parser = http_parser::http1_req_parser<pmr_vector_factory, pmr_string_factory, max_body_size, max_head_size>;
 
 template<std::size_t max_body_size = default_max_body_size, std::size_t max_head_size = default_max_head_size>
-using http1_resp_parser = http_parser::http1_resp_parser<std::pmr::vector, data_type, max_body_size, max_head_size>;
+using http1_resp_parser = http_parser::http1_resp_parser<pmr_vector_factory, pmr_string_factory, max_body_size, max_head_size>;
 
 } // namespace pmr_str
 

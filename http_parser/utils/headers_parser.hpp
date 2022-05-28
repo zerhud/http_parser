@@ -11,11 +11,11 @@
 
 namespace http_parser {
 
-template<typename DataContainer, template<class> class Container>
+template<typename DataContainer, typename ContainerFactory>
 class headers_parser final {
 public:
 	using container_view = basic_position_string_view<DataContainer>;
-	using result_type = header_message<Container, DataContainer>;
+	using result_type = header_message<DataContainer, ContainerFactory>;
 private:
 	typedef void (headers_parser::*parse_fnc)();
 	enum state_t { name, space, value, finish } ;
@@ -90,8 +90,8 @@ private:
 	}
 public:
 	template<typename ... Args>
-	headers_parser(container_view data, Args... args)
-	    : result_msg(data.underlying_container(), std::forward<Args>(args)...)
+	headers_parser(container_view data, const ContainerFactory& cf)
+	    : result_msg(data.underlying_container(), cf)
 	    , source(data)
 	{
 		init_srates();

@@ -8,6 +8,7 @@
  *************************************************************************/
 
 #include <variant>
+#include <type_traits>
 #include "message.hpp"
 #include "utils/headers_parser.hpp"
 #include "utils/http1_head_parsers.hpp"
@@ -15,15 +16,24 @@
 
 namespace http_parser {
 
+struct pmr_string_factory {
+	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
+	std::pmr::string operator()() const
+	{ return std::pmr::string{mem}; }
+};
+
+template<typename T>
+struct pmr_vector_t_factory {
+	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
+	std::pmr::vector<T> operator()() const
+	{ return std::pmr::vector<T>{mem}; }
+};
 
 template<typename Head, typename DataContainer>
 struct http1_parser_traits {
 	using data_view = basic_position_string_view<DataContainer>;
 
 	virtual ~http1_parser_traits () noexcept =default ;
-
-	virtual DataContainer create_data_container() =0 ;
-	virtual typename Head::headers_container create_headers_container() =0 ;
 
 	virtual void on_head(const Head& head) {}
 	virtual void on_message(const Head& head, const data_view& body) {}
@@ -32,12 +42,12 @@ struct http1_parser_traits {
 
 
 template<
-        template<class> class Container,
         typename DataContainer
+      , typename ContainerFactory
         >
 class http1_req_base_parser {
 public:
-	using message_t = http1_message<Container,  req_head_message, DataContainer>;
+	using message_t = http1_message<req_head_message, DataContainer, ContainerFactory>;
 protected:
 	template<typename HeadParser>
 	bool parser_head_base(message_t& msg, HeadParser& prs) const
@@ -52,12 +62,12 @@ protected:
 };
 
 template<
-        template<class> class Container,
         typename DataContainer
+      , typename ContainerFactory
         >
 class http1_resp_base_parser {
 public:
-	using message_t = http1_message<Container,  resp_head_message, DataContainer>;
+	using message_t = http1_message<resp_head_message, DataContainer, ContainerFactory>;
 protected:
 	template<typename HeadParser>
 	bool parser_head_base(message_t& msg, HeadParser& prs) const
@@ -72,19 +82,23 @@ protected:
 };
 
 template<
-        template<class> class Container,
-        typename DataContainer,
-        template<template<class> class,class> class BaseAcceptor,
-        std::size_t max_body_size = 4 * 1024,
-        std::size_t max_head_size = 1 * 1024
+        typename ContainerFactory
+      , typename DataContainerFactory
+      , template<class,class> class BaseAcceptor
+      , std::size_t max_body_size = 4 * 1024
+      , std::size_t max_head_size = 1 * 1024
+      , typename DataContainer = decltype(std::declval<DataContainerFactory>()())
         >
-class http1_parser final : protected BaseAcceptor<Container, DataContainer> {
-	using base_acceptor_t = BaseAcceptor<Container, DataContainer>;
+class http1_parser final : protected BaseAcceptor<DataContainer, ContainerFactory> {
+	using base_acceptor_t = BaseAcceptor<DataContainer, ContainerFactory>;
 public:
 	using message_t = base_acceptor_t::message_t;
 	using traits_type = http1_parser_traits<message_t, DataContainer>;
 private:
 	enum class state_t { wait, head, headers, body, finish };
+
+	DataContainerFactory df;
+	ContainerFactory cf;
 
 	state_t cur_state = state_t::wait;
 	traits_type* traits;
@@ -94,7 +108,7 @@ private:
 
 	message_t result_msg;
 
-	headers_parser<DataContainer, Container> parser_hrds;
+	headers_parser<DataContainer, ContainerFactory> parser_hrds;
 
 	void parse_head() {
 		assert(traits);
@@ -129,7 +143,7 @@ private:
 
 	void clean_body(std::size_t actual_pos)
 	{
-		auto body = traits->create_data_container();
+		auto body = df();
 		for(std::size_t i=actual_pos;i<body_data.size();++i)
 			body.push_back(body_data[i]);
 		body_data = std::move(body);
@@ -181,14 +195,16 @@ private:
 			    throw std::out_of_range("maximum head size reached"s);
 	}
 public:
-	http1_parser(traits_type* traits)
-	    : traits(traits)
-	    , data(traits->create_data_container())
-	    , body_data(traits->create_data_container())
+	http1_parser(traits_type* traits) : http1_parser(traits, DataContainerFactory{}, ContainerFactory{}) {}
+	http1_parser(traits_type* traits, DataContainerFactory&& df, ContainerFactory&& cf)
+	    : df(std::move(df)), cf(std::move(cf))
+	    , traits(traits)
+	    , data(this->df())
+	    , body_data(this->df())
 	    , head_view(&data, 0, 0)
 	    , body_view(&body_data, 0, 0)
-	    , result_msg(&data, traits->create_headers_container())
-	    , parser_hrds(&data, traits->create_headers_container())
+	    , result_msg(&data, this->cf)
+	    , parser_hrds(&data, this->cf)
 	{}
 
 	template<typename S>
@@ -206,19 +222,19 @@ public:
 };
 
 template<
-        template<class> class Container,
-        typename DataContainer,
-        std::size_t max_body_size = 4 * 1024,
-        std::size_t max_head_size = 1 * 1024
+        typename ContainerFactory
+      , typename DataContainerFactory
+      , std::size_t max_body_size = 4 * 1024
+      , std::size_t max_head_size = 1 * 1024
         >
-using http1_req_parser = http1_parser<Container, DataContainer, http1_req_base_parser, max_body_size, max_head_size>;
+using http1_req_parser = http1_parser<ContainerFactory, DataContainerFactory, http1_req_base_parser, max_body_size, max_head_size>;
 
 template<
-        template<class> class Container,
-        typename DataContainer,
-        std::size_t max_body_size = 4 * 1024,
-        std::size_t max_head_size = 1 * 1024
+        typename ContainerFactory
+      , typename DataContainerFactory
+      , std::size_t max_body_size = 4 * 1024
+      , std::size_t max_head_size = 1 * 1024
         >
-using http1_resp_parser = http1_parser<Container, DataContainer, http1_resp_base_parser, max_body_size, max_head_size>;
+using http1_resp_parser = http1_parser<ContainerFactory, DataContainerFactory, http1_resp_base_parser, max_body_size, max_head_size>;
 
 } // namespace http_parser

@@ -11,24 +11,18 @@ using namespace std::literals;
 
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(acceptor)
+
 BOOST_AUTO_TEST_SUITE(request)
-using parser_t = http_parser::http1_req_parser<std::pmr::vector, std::pmr::string, 100, 100>;
+
+using parser_t = http_parser::pmr_str::http1_req_parser<100, 100>;
 using http1_msg_t = parser_t::message_t;
 struct test_acceptor : parser_t::traits_type {
 	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
 	std::size_t count = 0;
 	std::size_t head_count = 0;
 	std::size_t error_count = 0;
-	std::size_t data_created_count = 0;
-	std::size_t headers_created_count = 0;
 	std::function<void(const http1_msg_t& req_head_message)> head_check;
 	std::function<void(const http1_msg_t& req_head_message, const data_view& body)> check, error_check;
-
-	std::pmr::string create_data_container() override { ++data_created_count; return std::pmr::string{ mem }; }
-	http1_msg_t::headers_container create_headers_container() override {
-		++headers_created_count;
-		return http1_msg_t::headers_container{ mem };
-	}
 
 	void on_head(const http1_msg_t& head) override { ++head_count; if(head_check) head_check(head); }
 	void on_message(const http1_msg_t& head, const data_view& body) override {
@@ -44,10 +38,18 @@ struct test_acceptor : parser_t::traits_type {
 	}
 };
 
-BOOST_AUTO_TEST_CASE(head)
-{
+struct fixture {
 	test_acceptor traits;
-	parser_t acceptor( &traits );
+	parser_t acceptor;
+
+	fixture()
+	    : acceptor( &traits )
+	{
+	}
+};
+
+BOOST_FIXTURE_TEST_CASE(head, fixture)
+{
 	traits.check = [](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(header.head().method() == "DELETE"sv);
 		BOOST_TEST(header.head().url().uri() == "/path"sv);
@@ -59,11 +61,9 @@ BOOST_AUTO_TEST_CASE(head)
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 0);
 }
-BOOST_AUTO_TEST_CASE(simple_body)
+BOOST_FIXTURE_TEST_CASE(simple_body, fixture)
 {
-	test_acceptor traits;
-	parser_t acceptor( &traits );
-	traits.check = [&traits](const http1_msg_t& header, const auto& body) {
+	traits.check = [this](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(traits.head_count == 1);
 		BOOST_TEST(header.head().method() == "POST"sv);
 		BOOST_TEST(header.head().url().uri() == "/pa/th?a=b"sv);
@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(simple_body)
 		BOOST_TEST(body.size() == 2);
 		BOOST_TEST(body == "ok"sv);
 	};
-	traits.head_check = [&traits](const http1_msg_t& header) {
+	traits.head_check = [this](const http1_msg_t& header) {
 		BOOST_TEST(traits.count == 0);
 		BOOST_TEST(header.head().method() == "POST"sv);
 		BOOST_TEST(header.head().url().uri() == "/pa/th?a=b"sv);
@@ -84,11 +84,9 @@ BOOST_AUTO_TEST_CASE(simple_body)
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 1);
 }
-BOOST_AUTO_TEST_CASE(chunked_body)
+BOOST_FIXTURE_TEST_CASE(chunked_body, fixture)
 {
-	test_acceptor traits;
-	parser_t acceptor( &traits );
-	traits.check = [&traits](const http1_msg_t& header, const auto& body) {
+	traits.check = [this](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(traits.head_count == 1);
 		BOOST_TEST_CONTEXT("current count " << traits.count) {
 			if(traits.count == 1) {
@@ -108,7 +106,7 @@ BOOST_AUTO_TEST_CASE(chunked_body)
 			}
 		}
 	};
-	traits.head_check = [&traits](const http1_msg_t& header) {
+	traits.head_check = [this](const http1_msg_t& header) {
 		BOOST_TEST(traits.count == 0);
 		BOOST_TEST(header.headers().is_chunked() == true);
 	};
@@ -128,11 +126,9 @@ BOOST_AUTO_TEST_CASE(chunked_body)
 	BOOST_TEST(traits.count == 4);
 	BOOST_TEST(traits.head_count == 1);
 }
-BOOST_AUTO_TEST_CASE(chunked_body_trash)
+BOOST_FIXTURE_TEST_CASE(chunked_body_trash, fixture)
 {
-	test_acceptor traits;
-	parser_t acceptor( &traits );
-	traits.check = [&traits](const http1_msg_t& header, const auto& body) {
+	traits.check = [this](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(traits.head_count == 1);
 		BOOST_TEST_CONTEXT("current count " << traits.count) {
 			if(traits.count == 1) {
@@ -149,31 +145,25 @@ BOOST_AUTO_TEST_CASE(chunked_body_trash)
 	BOOST_TEST(traits.count == 2);
 	BOOST_TEST(traits.head_count == 1);
 }
-BOOST_AUTO_TEST_CASE(chunked_body_error)
+BOOST_FIXTURE_TEST_CASE(chunked_body_error, fixture)
 {
-	test_acceptor traits;
-	parser_t acceptor( &traits );
-	traits.error_check = [&traits](const http1_msg_t& header, const auto& body) {
+	traits.error_check = [this](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(traits.count == 0);
 		BOOST_TEST(traits.head_count == 1);
 	};
 	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nTransfer-Encoding: chunked\r\n\r\n\r\nok"sv);
 	BOOST_TEST(traits.error_count == 1);
 }
-BOOST_AUTO_TEST_CASE(head_limit_overflow)
+BOOST_FIXTURE_TEST_CASE(head_limit_overflow, fixture)
 {
-	test_acceptor traits;
-	parser_t acceptor( &traits );
 	BOOST_CHECK_THROW( acceptor(
 	                       "POST /p HTTP/1.1\r\n"
 	                       "H1:1234567890123456789012345678901234567890"
 	                       "1234567890123456789012345678901234567890"
 	                       "12345678901234567890\r\n"sv), std::out_of_range );
 }
-BOOST_AUTO_TEST_CASE(body_limit_overflow)
+BOOST_FIXTURE_TEST_CASE(body_limit_overflow, fixture)
 {
-	test_acceptor traits;
-	parser_t acceptor( &traits );
 	BOOST_CHECK_NO_THROW( acceptor(
 	                       "POST /p HTTP/1.1\r\nContent-Length: 120\r\n\r\n"
 	                       "1234567890123456789012345678901234567890"
@@ -181,10 +171,8 @@ BOOST_AUTO_TEST_CASE(body_limit_overflow)
 	                       ""sv) );
 	BOOST_CHECK_THROW( acceptor("0034567890123456789012345678901234567890"sv), std::out_of_range);
 }
-BOOST_AUTO_TEST_CASE(head_by_peaces)
+BOOST_FIXTURE_TEST_CASE(head_by_peaces, fixture)
 {
-	test_acceptor traits;
-	parser_t acceptor( &traits );
 	traits.check = [](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(header.head().method() == "DELETE"sv);
 		BOOST_TEST(header.head().url().uri() == "/path"sv);
@@ -202,7 +190,7 @@ BOOST_AUTO_TEST_CASE(head_by_peaces)
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 0);
 }
-BOOST_AUTO_TEST_CASE(memory)
+BOOST_FIXTURE_TEST_CASE(memory, fixture)
 {
 	struct raii {
 		raii() {
@@ -212,10 +200,7 @@ BOOST_AUTO_TEST_CASE(memory)
 			std::pmr::set_default_resource(std::pmr::new_delete_resource());
 		}
 	} mr_setter;
-	test_acceptor traits;
-	traits.mem = std::pmr::new_delete_resource();
-	parser_t acceptor( &traits );
-	traits.check = [&traits](const http1_msg_t& header, const auto& body) {
+	traits.check = [this](const http1_msg_t& header, const auto& body) {
 		BOOST_TEST(traits.head_count == 1);
 		BOOST_TEST(header.head().method() == "POST"sv);
 		BOOST_TEST(header.head().url().uri() == "/pa/th?a=b"sv);
@@ -224,7 +209,7 @@ BOOST_AUTO_TEST_CASE(memory)
 		BOOST_TEST(body.size() == 2);
 		BOOST_TEST(body == "ok"sv);
 	};
-	traits.head_check = [&traits](const http1_msg_t& header) {
+	traits.head_check = [this](const http1_msg_t& header) {
 		BOOST_TEST(traits.count == 0);
 		BOOST_TEST(header.head().method() == "POST"sv);
 		BOOST_TEST(header.head().url().uri() == "/pa/th?a=b"sv);
@@ -240,21 +225,13 @@ BOOST_AUTO_TEST_CASE(memory)
 BOOST_AUTO_TEST_SUITE_END() // request
 
 BOOST_AUTO_TEST_SUITE(response)
-using parser_t = http_parser::http1_resp_parser<std::pmr::vector, std::pmr::string, 100, 100>;
+using parser_t = http_parser::pmr_str::http1_resp_parser<100, 100>;
 using http1_msg_t = parser_t::message_t;
 struct test_acceptor : parser_t::traits_type {
 	std::size_t count = 0;
 	std::size_t head_count = 0;
-	std::size_t data_created_count = 0;
-	std::size_t headers_created_count = 0;
 	std::function<void(const http1_msg_t& req_head_message)> head_check;
 	std::function<void(const http1_msg_t& req_head_message, const data_view& body)> check;
-
-	std::pmr::string create_data_container() override { ++data_created_count; return std::pmr::string{}; }
-	http1_msg_t::headers_container create_headers_container() override {
-		++headers_created_count;
-		return http1_msg_t::headers_container{};
-	}
 
 	void on_head(const http1_msg_t& head) override { ++head_count; if(head_check) head_check(head); }
 	void on_message(const http1_msg_t& head, const data_view& body) override {

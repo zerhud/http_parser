@@ -11,30 +11,53 @@
 #include "uri_parser.hpp"
 #include "utils/cvt.hpp"
 #include "utils/pos_string_view.hpp"
+#include "utils/inner_static_vector.hpp"
 
 namespace http_parser {
 
 template<typename Con>
 struct header_view {
+	//TODO: implement trivial ctor for use it with inner_static_array
 	header_view(const Con* src) : name(src, 0, 0), value(src, 0, 0) {}
 
 	basic_position_string_view<Con> name;
 	basic_position_string_view<Con> value;
 };
 
-template<template<class> class Container, typename DataContainer>
+struct pmr_vector_factory {
+	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
+	template<typename T>
+	std::pmr::vector<T> operator()() const
+	{ return std::pmr::vector<T>{}; }
+};
+
+template<std::size_t N>
+struct static_vector_factory {
+	template<typename T>
+	auto operator()() const
+	{
+		return inner_static_vector<T, N>{};
+	}
+};
+
+template<
+        typename DataContainer
+      , typename ContainerFactory
+      , typename Container = decltype(std::declval<ContainerFactory>().template operator()<header_view<DataContainer>>())
+      >
 class header_message {
 public:
-	using headers_container = Container<header_view<DataContainer>>;
+	using header_view_t = header_view<DataContainer>;
+	using headers_container = Container;
 	using pos_view = basic_position_string_view<DataContainer>;
 private:
 	const DataContainer* data_;
 	headers_container headers_;
 public:
 	template<typename ... Args>
-	header_message(const DataContainer* d, Args... args)
+	header_message(const DataContainer* d, const ContainerFactory& cf )
 	    : data_(d)
-	    , headers_(std::forward<Args>(args)...)
+	    , headers_(cf.template operator()<header_view_t>())
 	{}
 
 	header_message& operator = (const header_message& other)
@@ -133,21 +156,20 @@ struct resp_head_message {
 	basic_position_string_view<DataContainer> reason;
 };
 
-template<template<class> class Container, template<class> class Head, typename DataContainer>
+template<template<class> class Head, typename DataContainer, typename ContainerFactory>
 class http1_message {
 public:
-	using header_message_t = header_message<Container, DataContainer>;
+	using header_message_t = header_message<DataContainer, ContainerFactory>;
 	using headers_container = header_message_t::headers_container;
 private:
 	const DataContainer* data;
 	Head<DataContainer> head_;
 	header_message_t headers_;
 public:
-	template<typename ... Args>
-	http1_message(const DataContainer* d, Args... args)
+	http1_message(const DataContainer* d, const ContainerFactory& cf)
 	    : data(d)
 	    , head_(d)
-	    , headers_(d, std::forward<Args>(args)...)
+	    , headers_(d, cf)
 	{}
 
 	Head<DataContainer>& head() { return head_; }

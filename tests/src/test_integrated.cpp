@@ -102,16 +102,13 @@ struct asio_acceptor {
 		}
 };
 
-using req_parser = http_parser::http1_req_parser<std::pmr::vector,std::pmr::string>;
+using req_parser = http_parser::pmr_str::http1_req_parser<>;
 struct parser_traits : req_parser::traits_type {
 
 	std::string* gotten_data;
 	std::function<void(http_parser::pmr_str::data_type)> writer;
 
 	using message_t = req_parser::message_t;
-
-	std::pmr::string create_data_container() override { return std::pmr::string{}; }
-	message_t::headers_container create_headers_container() override { return message_t::headers_container{}; }
 
 	void on_head(const message_t& head) {}
 	void on_message(const message_t& head, const data_view& body) {

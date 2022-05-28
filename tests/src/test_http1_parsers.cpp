@@ -141,7 +141,7 @@ BOOST_AUTO_TEST_CASE(common)
 {
 	std::string data = "Name: value\r\nother:v\r\n\r\n";
 	http_parser::basic_position_string_view view(&data);
-	http_parser::headers_parser<std::string, std::vector> prs(view);
+	http_parser::headers_parser prs(view, http_parser::pmr_vector_factory{});
 	BOOST_TEST( prs() == data.size() );
 	BOOST_TEST(prs.is_finished() == true);
 	auto& res = prs.result();
@@ -153,7 +153,7 @@ BOOST_AUTO_TEST_CASE(by_pieces)
 {
 	std::string data = "";
 	http_parser::basic_position_string_view view(&data);
-	http_parser::headers_parser<std::string, std::vector> prs(view);
+	http_parser::headers_parser prs(view, http_parser::pmr_vector_factory{});
 
 	BOOST_TEST(prs() == 0);
 	BOOST_TEST(prs.is_finished() == false);
@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_CASE(single)
 {
 	std::string data = "name:value\r\n\r\n";
 	http_parser::basic_position_string_view view(&data);
-	http_parser::headers_parser<std::string, std::vector> prs(view);
+	http_parser::headers_parser prs(view, http_parser::pmr_vector_factory{});
 	BOOST_TEST(prs() == data.size());
 	BOOST_TEST(prs.is_finished() == true);
 	auto& res = prs.result();
@@ -207,7 +207,7 @@ BOOST_AUTO_TEST_CASE(skip_first_bytes)
 {
 	std::string data = "garbagename:value\r\n\r\n";
 	http_parser::basic_position_string_view view(&data);
-	http_parser::headers_parser<std::string, std::vector> prs(view);
+	http_parser::headers_parser prs(view, http_parser::pmr_vector_factory{});
 	prs.skip_first_bytes(7);
 	BOOST_TEST(prs() == data.size());
 	BOOST_TEST(prs.is_finished() == true);
@@ -219,7 +219,7 @@ BOOST_AUTO_TEST_CASE(skip_first_bytes_steps)
 {
 	std::string data = "garba"s;
 	http_parser::basic_position_string_view view(&data);
-	http_parser::headers_parser<std::string, std::vector> prs(view);
+	http_parser::headers_parser prs(view, http_parser::pmr_vector_factory{});
 	prs.skip_first_bytes(7);
 	prs();
 	BOOST_TEST(prs.is_finished() == false);
@@ -236,7 +236,7 @@ BOOST_AUTO_TEST_CASE(speed, * utf::enable_if<enable_speed_tests>())
 	http_parser::basic_position_string_view view(&data);
 	auto start = std::chrono::high_resolution_clock::now();
 	for(std::size_t i=0;i<10'000'000;++i) {
-		http_parser::headers_parser<std::string, std::vector> prs(view);
+		http_parser::headers_parser prs(view, http_parser::pmr_vector_factory{});
 		prs();
 	}
 	auto end = std::chrono::high_resolution_clock::now();
