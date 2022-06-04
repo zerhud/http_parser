@@ -82,8 +82,12 @@ class uri_parser_machine {
 
 	void ponly_path()
 	{
-		if(!is_slash()) switch_state(state::path);
-		else {
+		if(is_end()) {
+			path = src.substr(0);
+			to_state(state::finish);
+		} else if(!is_slash()) {
+			switch_state(state::path);
+		} else {
 			++begin;
 			to_state(state::user_pwd);
 		}
