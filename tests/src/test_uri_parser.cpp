@@ -110,6 +110,23 @@ BOOST_AUTO_TEST_CASE(wrong_url)
 	BOOST_TEST((uri_parser("h://g.c/?a=2&=")).param("a").value() == "2");
 	BOOST_CHECK((uri_parser("h://g.c/?a&bc")).param("c") == std::nullopt);
 }
+BOOST_AUTO_TEST_CASE(operators)
+{
+	using namespace std::literals;
+	uri_parser p1("http://google.com"), p2("/path");
+	BOOST_TEST(p1 == "http://google.com");
+	BOOST_TEST(p1 == "http://google.com"sv);
+	BOOST_TEST(p1 != "http://g.com"sv);
+	BOOST_TEST(p1 == p1);
+	BOOST_TEST(p1 != p2);
+
+	std::stringstream out;
+	out << p1;
+	BOOST_TEST(out.str() == "http://google.com");
+
+	p1.uri("/path");
+	BOOST_TEST(p1 == p2);
+}
 
 BOOST_AUTO_TEST_SUITE(parser)
 using uri_parser = http_parser::uri_parser_machine<std::string_view>;

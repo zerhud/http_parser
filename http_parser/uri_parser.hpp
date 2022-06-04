@@ -7,6 +7,7 @@
  * See accompanying file LICENSE (at the root of this repository)
  *************************************************************************/
 
+#include <compare>
 #include <cassert>
 #include <optional>
 #include <memory_resource>
@@ -365,5 +366,29 @@ public:
 	StringView user() const { return parsed.user; }
 	StringView pass() const { return parsed.password; }
 };
+
+template<typename S, typename T>
+inline auto operator != (const basic_uri_parser<S>& left, T&& right)
+{ return !operator == (left, std::forward<T>(right)); }
+
+template<typename S, typename T>
+requires requires(S&& l, T&& r){ l==r; }
+inline auto operator == (const basic_uri_parser<S>& left, T&& right)
+{
+	return left.uri() == right;
+}
+template<typename S>
+inline auto operator == (const basic_uri_parser<S>& left, const basic_uri_parser<S>& right)
+{
+	return left.uri() == right.uri();
+}
+
+
+template<typename S, typename O>
+inline O& operator << (O& out, const basic_uri_parser<S>& obj)
+{
+	operator << (out, obj.uri());
+	return out;
+}
 
 } // namespace http_parser
