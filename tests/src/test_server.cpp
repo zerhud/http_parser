@@ -12,28 +12,27 @@ BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(server)
 
 namespace test_details {
-using buffer_type = std::array<char, 10>;
+using buffer_type = std::array<const char, 10>;
 } // namespace test_details
 
 struct tcp_socket : http_parser::tcp_socket<test_details::buffer_type> {
+	http_parser::data_receiver<buffer_t>* dr;
 	void receive(std::string_view data) {
-		;
+		for(std::size_t i=0;i<data.size();i+=dr->max_buffer_size()) {
+			auto cur = data.substr(i, dr->max_buffer_size());
+			dr->receive(cur.data(), cur.size());
+		}
+	}
+	void on_data(http_parser::data_receiver<buffer_t>* dr) override {
+		this->dr = dr;
 	}
 };
 
-struct test_traits_factory {
-	template<typename T>
-	using container_t = std::pmr::vector<T>;
-	using data_type = std::pmr::vector<std::byte>;
-	static constexpr std::size_t max_body_size = 4 * 1024;
-	static constexpr std::size_t max_head_size = 1 * 1024;
-
-	using request_parser_t = http_parser::http1_req_parser<container_t, data_type, max_body_size, max_head_size>;
-	using response_parser_t = http_parser::http1_resp_parser<container_t, data_type, max_body_size, max_head_size>;
-};
-
-
-using server_t = http_parser::server<test_details::buffer_type, test_traits_factory>;
+using server_t = http_parser::server<
+  test_details::buffer_type
+, http_parser::pmr_vector_factory
+, http_parser::pmr_string_factory
+>;
 
 struct test_hndl_desc : http_parser::handler_descriptor {
 	std::string host, path, endpoint;
@@ -58,7 +57,7 @@ BOOST_AUTO_TEST_CASE(example)
 
 	auto* hndl = srv.reg( std::make_unique<test_hndl_desc>("host", "/path", "localhost", 8083, nullptr) );
 	BOOST_TEST(srv.active_count() == 0);
-	srv(&sock1); // incoming connection
+//	srv(std::shared_ptr<tcp_socket>(&sock1, [](auto){})); // incoming connection
 
 	std::size_t hndl_cnt = 0;
 //	hndl->hndl = [&hndl_cnt](server_t::message_t req, server_t::writer_t write){

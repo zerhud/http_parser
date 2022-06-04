@@ -31,8 +31,15 @@ add_unit_test(messages)
 add_unit_test(http1_parsers)
 add_unit_test(parser)
 add_unit_test(utils)
+add_unit_test(server)
+
+if(UNIX)
+
+# linux specefiec tests
 add_unit_test(integrated)
 
 find_package(Boost COMPONENTS fiber context REQUIRED)
 
 target_link_libraries(test_integrated PRIVATE ${Boost_LIBRARIES} Threads::Threads)
+
+endif(UNIX)

@@ -31,13 +31,14 @@ struct pmr_vector_t_factory {
 
 template<typename Head, typename DataContainer>
 struct http1_parser_traits {
+	using head_t = Head;
 	using data_view = basic_position_string_view<DataContainer>;
 
 	virtual ~http1_parser_traits () noexcept =default ;
 
-	virtual void on_head(const Head& head) {}
-	virtual void on_message(const Head& head, const data_view& body) {}
-	virtual void on_error(const Head& head, const data_view& body) {}
+	virtual void on_head(const head_t& head) {}
+	virtual void on_message(const head_t& head, const data_view& body) {}
+	virtual void on_error(const head_t& head, const data_view& body) {}
 };
 
 
@@ -196,7 +197,7 @@ private:
 	}
 public:
 	http1_parser(traits_type* traits) : http1_parser(traits, DataContainerFactory{}, ContainerFactory{}) {}
-	http1_parser(traits_type* traits, DataContainerFactory&& df, ContainerFactory&& cf)
+	http1_parser(traits_type* traits, DataContainerFactory df, ContainerFactory cf)
 	    : df(std::move(df)), cf(std::move(cf))
 	    , traits(traits)
 	    , data(this->df())
