@@ -60,8 +60,19 @@ public:
 	    , headers_(cf.template operator()<header_view_t>())
 	{}
 
+	header_message(header_message&& other)
+	requires requires(const headers_container& hc) { hc.get_allocator(); }
+	    : data_(other.data_)
+	    , headers_(other.headers_.get_allocator())
+	{
+		headers_.reserve(other.size());
+		for(auto&& h:other.headers_)
+			headers_.emplace_back(h);
+	}
+
 	header_message& operator = (const header_message& other)
 	{
+		headers_.clear();
 		data_ = other.data_;
 		for(auto& h:other.headers_) headers_.emplace_back(h);
 		return *this;

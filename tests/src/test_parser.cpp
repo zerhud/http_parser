@@ -84,6 +84,27 @@ BOOST_FIXTURE_TEST_CASE(simple_body, fixture)
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 1);
 }
+BOOST_AUTO_TEST_CASE(recreate)
+{
+	test_acceptor traits;
+	parser_t prs(&traits);
+	BOOST_TEST(traits.count == 0);
+	prs("GET / HTTP/1.1\r\n\r\n"sv);
+	BOOST_TEST(traits.count == 1);
+	parser_t prs2(std::move(prs));
+	prs2("GET / HTTP/1.1\r\n\r\n"sv);
+	BOOST_TEST(traits.count == 2);
+
+	std::optional<parser_t> prs_opt;
+	prs_opt.emplace(&traits);
+	(*prs_opt)("GET / HTTP/1.1\r\n\r\n"sv);
+	BOOST_TEST(traits.count == 3);
+
+	prs_opt.reset();
+	prs_opt.emplace(&traits);
+	(*prs_opt)("GET / HTTP/1.1\r\n\r\n"sv);
+	BOOST_TEST(traits.count == 4);
+}
 BOOST_FIXTURE_TEST_CASE(chunked_body, fixture)
 {
 	traits.check = [this](const http1_msg_t& header, const auto& body) {
@@ -221,6 +242,31 @@ BOOST_FIXTURE_TEST_CASE(memory, fixture)
 	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nok_extra"sv);
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 1);
+}
+BOOST_FIXTURE_TEST_CASE(few_requests, fixture)
+{
+	traits.check = [this](const http1_msg_t& header, const auto& body) {
+		if(header.head().method() != "DEL"sv) {
+			BOOST_TEST(header.headers().size() == 2);
+			BOOST_TEST(header.find_header("H1"sv).value() == "v1"sv);
+			BOOST_TEST(body.size() == 2);
+		}
+		if(header.head().method() == "GET"sv) BOOST_TEST(header.head().url() == "/path"sv);
+		else if(header.head().method() == "POST"sv) BOOST_TEST(header.head().url() == "/pa/th?a=b"sv);
+	};
+	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nokGET /path"sv);
+	BOOST_TEST(traits.count == 1);
+	acceptor(" HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nokDEL /path HTTP/1.1\r\n\r\n"sv);
+	BOOST_TEST(traits.count == 3);
+}
+BOOST_FIXTURE_TEST_CASE(just_head, fixture)
+{
+	traits.check = [this](const http1_msg_t& header, const auto& body) {
+		BOOST_TEST(header.head().method() == "GET"sv);
+		BOOST_TEST(header.head().url() == "/path"sv);
+	};
+	acceptor("GET /path HTTP/1.1\r\n\r\n"sv);
+	BOOST_TEST(traits.count == 1);
 }
 BOOST_AUTO_TEST_SUITE_END() // request
 

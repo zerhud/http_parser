@@ -61,12 +61,40 @@ using pmr_vector_factory = http_parser::pmr_vector_factory;
 BOOST_AUTO_TEST_CASE(creating)
 {
 	std::string data = "H: 1\r\nH2: 2";
-	auto* mem = std::pmr::get_default_resource();
 	header_message msg(&data, pmr_vector_factory{});
 	BOOST_CHECK_NO_THROW( msg.add_header_name(0, 1) );
 	BOOST_CHECK_NO_THROW( msg.last_header_value(3, 1) );
 	BOOST_TEST( msg.find_header("H").value() == "1"sv );
 	BOOST_TEST( msg.body_exists() == false );
+}
+BOOST_AUTO_TEST_CASE(move)
+{
+	std::string data1 = "H:1\r\nH2: 2";
+	std::string data2 = "H3:3\r\nH4: 4";
+	auto* mem = std::pmr::get_default_resource();
+	header_message msg(&data1, pmr_vector_factory{});
+	BOOST_CHECK_NO_THROW( msg.add_header_name(0, 1) );
+	BOOST_CHECK_NO_THROW( msg.last_header_value(2, 1) );
+	BOOST_TEST(msg.size() == 1);
+
+	struct mem_holder {
+		std::pmr::memory_resource* mem;
+		mem_holder(std::pmr::memory_resource* mem) : mem(mem)
+		{ std::pmr::set_default_resource(std::pmr::null_memory_resource()); }
+		~mem_holder() { std::pmr::set_default_resource(mem); }
+	} mem_holder(mem);
+
+	msg = header_message(&data2, pmr_vector_factory{mem});
+	BOOST_TEST(msg.size() == 0);
+	BOOST_CHECK_NO_THROW( msg.add_header_name(0, 2) );
+	BOOST_CHECK_NO_THROW( msg.last_header_value(3, 1) );
+	BOOST_TEST( msg.find_header("H3").value() == "3"sv );
+	BOOST_TEST( msg.find_header("H").has_value() == false);
+
+	header_message msg2(std::move(msg));
+	BOOST_TEST(msg2.size() == 1);
+	BOOST_TEST( msg.find_header("H3").value() == "3"sv );
+	BOOST_TEST( msg.find_header("H").has_value() == false);
 }
 BOOST_AUTO_TEST_CASE(empty)
 {
