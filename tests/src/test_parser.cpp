@@ -61,7 +61,7 @@ BOOST_FIXTURE_TEST_CASE(head, fixture)
 	};
 	acceptor("DELETE /path HTTP/1.1\r\nH1:v1\r\n\r\n"sv);
 	BOOST_TEST(traits.count == 1);
-	BOOST_TEST(traits.head_count == 0);
+	BOOST_TEST(traits.head_count == 1);
 }
 BOOST_FIXTURE_TEST_CASE(simple_body, fixture)
 {
@@ -233,7 +233,7 @@ BOOST_FIXTURE_TEST_CASE(head_by_peaces, fixture)
 	acceptor("\n"sv);
 	BOOST_TEST(acceptor.cached_size() == 0);
 	BOOST_TEST(traits.count == 1);
-	BOOST_TEST(traits.head_count == 0);
+	BOOST_TEST(traits.head_count == 1);
 }
 BOOST_FIXTURE_TEST_CASE(memory, fixture)
 {
@@ -290,6 +290,10 @@ BOOST_FIXTURE_TEST_CASE(few_requests, fixture)
 }
 BOOST_FIXTURE_TEST_CASE(just_head, fixture)
 {
+	traits.head_check = [this](const http1_msg_t& header) {
+		BOOST_TEST(header.head().method() == "GET"sv);
+		BOOST_TEST(header.head().url() == "/path"sv);
+	};
 	traits.check = [this](const http1_msg_t& header, const auto& body, std::size_t tail) {
 		BOOST_TEST(tail == 0);
 		BOOST_TEST(header.head().method() == "GET"sv);
@@ -353,7 +357,7 @@ BOOST_AUTO_TEST_CASE(simple_haed)
 	};
 	acceptor("HTTP/1.1 300 TEST\r\nH1:v1\r\n\r\n"sv);
 	BOOST_TEST(traits.count == 1);
-	BOOST_TEST(traits.head_count == 0);
+	BOOST_TEST(traits.head_count == 1);
 }
 BOOST_AUTO_TEST_CASE(simple_body)
 {

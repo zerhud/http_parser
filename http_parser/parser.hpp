@@ -131,8 +131,8 @@ private:
 	void headers_ready() {
 		body_view.assign(parser_hdrs.finish_position(), 0);
 		const bool body_exists = result_msg.headers().body_exists();
-		if(body_exists) traits->on_head(result_msg);
-		else traits->on_message( result_msg, body_view, 0 );
+		traits->on_head(result_msg);
+		if(!body_exists) traits->on_message( result_msg, body_view, 0 );
 		cur_state = body_exists ? state_t::body : state_t::finish;
 	}
 	void parse_body() {
