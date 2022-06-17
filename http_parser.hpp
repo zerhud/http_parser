@@ -15,7 +15,6 @@
 namespace http_parser {
 
 constexpr std::size_t default_max_body_size = 4 * 1024;
-constexpr std::size_t default_max_head_size = 1 * 1024;
 
 namespace pmr_vec {
 using data_type = std::pmr::vector<std::byte>;
@@ -30,11 +29,11 @@ struct http1_acceptor_traits : http_parser::http1_parser_traits<Head, data_type>
 	{ return std::pmr::vector<header_view<data_type>>{mem}; }
 };
 
-template<std::size_t max_body_size = default_max_body_size, std::size_t max_head_size = default_max_head_size>
-using http1_req_parser = http_parser::http1_req_parser<pmr_vector_factory, pmr_vector_t_factory<std::byte>, max_body_size, max_head_size>;
+template<std::size_t max_body_size = default_max_body_size>
+using http1_req_parser = http_parser::http1_req_parser<pmr_vector_factory, pmr_vector_t_factory<std::byte>, max_body_size>;
 
-template<std::size_t max_body_size = default_max_body_size, std::size_t max_head_size = default_max_head_size>
-using http1_resp_parser = http_parser::http1_resp_parser<pmr_vector_factory, pmr_vector_t_factory<std::byte>, max_body_size, max_head_size>;
+template<std::size_t max_body_size = default_max_body_size>
+using http1_resp_parser = http_parser::http1_resp_parser<pmr_vector_factory, pmr_vector_t_factory<std::byte>, max_body_size>;
 
 } // namespace pmr_vec
 
@@ -52,11 +51,11 @@ struct http1_acceptor_traits : http_parser::http1_parser_traits<Head, data_type>
 	{ return std::pmr::vector<header_view<data_type>>{mem}; }
 };
 
-template<std::size_t max_body_size = default_max_body_size, std::size_t max_head_size = default_max_head_size>
-using http1_req_parser = http_parser::http1_req_parser<pmr_vector_factory, pmr_string_factory, max_body_size, max_head_size>;
+template<std::size_t max_body_size = default_max_body_size>
+using http1_req_parser = http_parser::http1_req_parser<pmr_vector_factory, pmr_string_factory, max_body_size>;
 
-template<std::size_t max_body_size = default_max_body_size, std::size_t max_head_size = default_max_head_size>
-using http1_resp_parser = http_parser::http1_resp_parser<pmr_vector_factory, pmr_string_factory, max_body_size, max_head_size>;
+template<std::size_t max_body_size = default_max_body_size>
+using http1_resp_parser = http_parser::http1_resp_parser<pmr_vector_factory, pmr_string_factory, max_body_size>;
 
 } // namespace pmr_str
 

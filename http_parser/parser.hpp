@@ -37,7 +37,7 @@ struct http1_parser_traits {
 	virtual ~http1_parser_traits () noexcept =default ;
 
 	virtual void on_head(const head_t& head) {}
-	virtual void on_message(const head_t& head, const data_view& body) {}
+	virtual void on_message(const head_t& head, const data_view& body, std::size_t tail) {}
 	virtual void on_error(const head_t& head, const data_view& body) {}
 };
 
@@ -87,7 +87,6 @@ template<
       , typename DataContainerFactory
       , template<class,class> class BaseAcceptor
       , std::size_t max_body_size = 4 * 1024
-      , std::size_t max_head_size = 1 * 1024
       , typename DataContainer = decltype(std::declval<DataContainerFactory>()())
         >
 class http1_parser final : protected BaseAcceptor<DataContainer, ContainerFactory> {
@@ -103,12 +102,13 @@ private:
 
 	state_t cur_state = state_t::ready;
 	traits_type* traits;
-	DataContainer data, body_data;
+	DataContainer data;
 	basic_position_string_view<DataContainer> body_view;
+	std::size_t big_body_pos = 0;
 
 	message_t result_msg;
 
-	headers_parser<DataContainer, ContainerFactory> parser_hrds;
+	headers_parser<DataContainer, ContainerFactory> parser_hdrs;
 
 	void parse_head() {
 		assert(traits);
@@ -116,21 +116,20 @@ private:
 		http1_request_head_parser prs(head_view);
 		if(base_acceptor_t::parser_head_base(result_msg, prs)) {
 			cur_state = state_t::head;
-			parser_hrds.skip_first_bytes(prs.end_position());
+			parser_hdrs.skip_first_bytes(prs.end_position());
 		}
 	}
 	void parse_headers() {
-		parser_hrds();
-		require_head_limit(parser_hrds.finish_position());
-		if(!parser_hrds.is_finished()) return;
-		result_msg.headers() = parser_hrds.result();
+		parser_hdrs();
+		if(!parser_hdrs.is_finished()) return;
+		result_msg.headers() = parser_hdrs.result();
 		cur_state = state_t::headers;
 	}
 	void headers_ready() {
+		body_view.assign(parser_hdrs.finish_position(), 0);
 		const bool body_exists = result_msg.headers().body_exists();
-		move_to_body_container(parser_hrds.finish_position());
 		if(body_exists) traits->on_head(result_msg);
-		else traits->on_message( result_msg, body_view );
+		else traits->on_message( result_msg, body_view, 0 );
 		cur_state = body_exists ? state_t::body : state_t::finish;
 	}
 	void parse_body() {
@@ -143,20 +142,47 @@ private:
 
 	void clean_body(std::size_t actual_pos)
 	{
-		auto body = df();
-		for(std::size_t i=actual_pos;i<body_data.size();++i)
-			body.push_back(body_data[i]);
-		body_data = std::move(body);
+		if(data.size() - 1 <= actual_pos)
+			data.resize(parser_hdrs.finish_position());
+		else {
+			auto body = df();
+			for(std::size_t i=actual_pos;i<data.size();++i)
+				body.push_back(data[i]);
+			data.resize(parser_hdrs.finish_position());
+			for(auto& s:body) data.push_back(s);
+		}
+		body_view.assign(parser_hdrs.finish_position(), 0);
+	}
+
+	void remove_parsed_data()
+	{
+		std::size_t start_pos = parser_hdrs.finish_position() + body_view.size();
+		auto ndata = df();
+		for(std::size_t i=start_pos;i<data.size();++i)
+			ndata.push_back(data[i]);
+		data.clear();
 		body_view.reset();
+		big_body_pos = 0;
+		data = std::move(ndata);
 	}
 
 	void parse_single_body(std::size_t size)
 	{
-		if(size <= body_view.size()) {
-			body_view.resize(size);
-			traits->on_message(result_msg, body_view);
+		const bool ready = size <= body_view.size();
+		const bool overflow = max_body_size < size;
+		const bool on_big_body = overflow && max_body_size <= body_view.size();
+		const bool on_big_tail = overflow && size <= (big_body_pos + body_view.size()) ;
+		body_view.resize(size);
+		if(ready) {
+			traits->on_message(result_msg, body_view, 0);
 			cur_state = state_t::finish;
+		} else if(on_big_body || on_big_tail) {
+			big_body_pos += body_view.size();
+			traits->on_message(result_msg, body_view, size - big_body_pos);
+			if(size <= big_body_pos) cur_state = state_t::finish;
 		}
+		if(ready || on_big_body || on_big_tail)
+			clean_body(parser_hdrs.finish_position() + body_view.size());
 	}
 
 	void parse_chunked_body()
@@ -164,51 +190,24 @@ private:
 		chunked_body_parser prs(body_view);
 		while(prs()) {
 			if(prs.error()) traits->on_error(result_msg, body_view);
-			else if(prs.ready()) traits->on_message(result_msg, prs.result());
+			else if(prs.ready()) traits->on_message(result_msg, prs.result(), 0);
 		}
-		clean_body(prs.end_pos());
+		clean_body(prs.end_pos() + parser_hdrs.finish_position());
 		if(prs.finish()) cur_state = state_t::finish;
 	}
 
 	void parse_finish()
 	{
-		data.clear();
-		move_tail_to_head();
-		parser_hrds = decltype(parser_hrds){&data, cf};
+		remove_parsed_data();
+		parser_hdrs = decltype(parser_hdrs){&data, cf};
 		cur_state = state_t::ready;
 	}
 
-	void move_to_body_container(std::size_t start)
+	template<typename S>
+	void copy_buf(std::size_t pos, S&& buf)
 	{
-		for(std::size_t i=start;i<data.size();++i)
-			body_data.push_back(data[i]);
-		body_view.advance_to_end();
-	}
-
-	void move_tail_to_head()
-	{
-		for(std::size_t i=body_view.size();i<body_data.size();++i)
-			data.push_back(body_data[i]);
-		body_data.clear();
-		body_view.reset();
-	}
-
-	void require_limits(std::size_t size_to_add)
-	{
-		using namespace std::literals;
-		if(cur_state == state_t::body) {
-			if(max_body_size < body_data.size() + size_to_add)
-				throw std::out_of_range("maximum body size reached"s);
-		} else {
-			require_head_limit(data.size() + size_to_add);
-		}
-	}
-
-	void require_head_limit(std::size_t size_now) const
-	{
-		using namespace std::literals;
-		if(max_head_size < size_now)
-			    throw std::out_of_range("maximum head size reached"s);
+		for(std::size_t i=pos;i<buf.size();++i)
+			data.push_back(buf[i]);
 	}
 public:
 	http1_parser(const http1_parser&) =delete ;
@@ -221,13 +220,12 @@ public:
 	    , cur_state(state_t::wait)
 	    , traits(other.traits)
 	    , data(std::move(other.data))
-	    , body_data(std::move(other.body_data))
-	    , body_view(&body_data, 0, 0)
+	    , body_view(&data, 0, 0)
 	    , result_msg(&data, this->cf)
-	    , parser_hrds(&data, this->cf)
+	    , parser_hdrs(&data, this->cf)
 	{
 		using namespace std::literals;
-		body_view.assign(&body_data, other.body_view);
+		body_view.assign(&data, other.body_view);
 		(*this)(""sv);
 	}
 
@@ -238,10 +236,9 @@ public:
 	    , cur_state(state_t::wait)
 	    , traits(traits)
 	    , data(this->df())
-	    , body_data(this->df())
-	    , body_view(&body_data, 0, 0)
+	    , body_view(&data, 0, 0)
 	    , result_msg(&data, this->cf)
-	    , parser_hrds(&data, this->cf)
+	    , parser_hdrs(&data, this->cf)
 	{
 	}
 
@@ -249,18 +246,15 @@ public:
 	void operator()(S&& buf) {
 		using namespace std::literals;
 		assert( cur_state <= state_t::finish );
-		if(!data.empty()) require_limits( buf.size() );
 		if(cur_state == state_t::finish) parse_finish();
-		if(cur_state == state_t::body)
-			for(auto& s:buf) body_data.push_back((typename DataContainer::value_type) s);
-		else for(auto& s:buf) data.push_back((typename DataContainer::value_type) s);
+		copy_buf(0, std::forward<S>(buf));
 		do {
 			if(cur_state == state_t::ready) cur_state = state_t::wait;
 			if(cur_state == state_t::wait) parse_head();
 			if(cur_state == state_t::head) parse_headers();
 			if(cur_state == state_t::headers) headers_ready();
 			if(cur_state == state_t::body) parse_body();
-			if(cur_state == state_t::finish) (*this)(""sv);
+			if(cur_state == state_t::finish) parse_finish();
 		} while(cur_state == state_t::ready);
 	}
 };
@@ -269,24 +263,22 @@ template<
         typename ContainerFactory
       , typename DataContainerFactory
       , std::size_t max_body_size = 4 * 1024
-      , std::size_t max_head_size = 1 * 1024
         >
 using http1_req_parser = http1_parser<
     ContainerFactory, DataContainerFactory,
     http1_req_base_parser,
-    max_body_size, max_head_size
+    max_body_size
 >;
 
 template<
         typename ContainerFactory
       , typename DataContainerFactory
       , std::size_t max_body_size = 4 * 1024
-      , std::size_t max_head_size = 1 * 1024
         >
 using http1_resp_parser = http1_parser<
     ContainerFactory, DataContainerFactory,
     http1_resp_base_parser,
-    max_body_size, max_head_size
+    max_body_size
 >;
 
 } // namespace http_parser
