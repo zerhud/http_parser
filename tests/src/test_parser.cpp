@@ -300,6 +300,28 @@ BOOST_FIXTURE_TEST_CASE(just_head, fixture)
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(acceptor.cached_size() == 0);
 }
+BOOST_FIXTURE_TEST_CASE(without_buffer, fixture)
+{
+	traits.check = [this](const http1_msg_t& header, const auto& body, std::size_t tail) {
+		BOOST_TEST(tail == 0);
+		BOOST_TEST(header.head().method() == "GET"sv);
+		BOOST_TEST(header.head().url() == "/path"sv);
+	};
+	BOOST_TEST(acceptor.cached_size() == 0);
+
+	auto data = "GET /path HTTP/1.1\r\n\r\n"sv;
+
+	auto buf = acceptor.create_buf(data.size() + 10);
+	BOOST_TEST(acceptor.cached_size() == data.size() + 10);
+	for(std::size_t i=0;i<data.size();++i) buf[i] = data[i];
+
+	acceptor.trim_buf(data.size());
+	BOOST_TEST(acceptor.cached_size() == data.size());
+
+	acceptor(0);
+	BOOST_TEST(traits.count == 1);
+	BOOST_TEST(acceptor.cached_size() == 0);
+}
 BOOST_AUTO_TEST_SUITE_END() // request
 
 BOOST_AUTO_TEST_SUITE(response)

@@ -13,6 +13,7 @@
 #include "utils/headers_parser.hpp"
 #include "utils/http1_head_parsers.hpp"
 #include "utils/chunked_body_parser.hpp"
+#include "utils/concepts.hpp"
 
 namespace http_parser {
 
@@ -94,6 +95,7 @@ class http1_parser final : protected BaseAcceptor<DataContainer, ContainerFactor
 public:
 	using message_t = base_acceptor_t::message_t;
 	using traits_type = http1_parser_traits<message_t, DataContainer>;
+	using value_type = typename DataContainer::value_type;
 private:
 	enum class state_t { ready, wait, head, headers, body, finish };
 
@@ -105,6 +107,7 @@ private:
 	DataContainer data;
 	basic_position_string_view<DataContainer> body_view;
 	std::size_t big_body_pos = 0;
+	std::size_t created_buf = 0;
 
 	message_t result_msg;
 
@@ -209,6 +212,19 @@ private:
 		for(std::size_t i=pos;i<buf.size();++i)
 			data.push_back(buf[i]);
 	}
+
+	void parse_content()
+	{
+		if(cur_state == state_t::finish) parse_finish();
+		do {
+			if(cur_state == state_t::ready) cur_state = state_t::wait;
+			if(cur_state == state_t::wait) parse_head();
+			if(cur_state == state_t::head) parse_headers();
+			if(cur_state == state_t::headers) headers_ready();
+			if(cur_state == state_t::body) parse_body();
+			if(cur_state == state_t::finish) parse_finish();
+		} while(cur_state == state_t::ready);
+	}
 public:
 	http1_parser(const http1_parser&) =delete ;
 	http1_parser& operator = (const http1_parser&) =delete ;
@@ -242,26 +258,42 @@ public:
 	{
 	}
 
-	template<typename S>
-	void operator()(S&& buf) {
+	template<Buffer B>
+	void operator()(B&& buf) {
 		using namespace std::literals;
 		assert( cur_state <= state_t::finish );
-		if(cur_state == state_t::finish) parse_finish();
-		copy_buf(0, std::forward<S>(buf));
-		do {
-			if(cur_state == state_t::ready) cur_state = state_t::wait;
-			if(cur_state == state_t::wait) parse_head();
-			if(cur_state == state_t::head) parse_headers();
-			if(cur_state == state_t::headers) headers_ready();
-			if(cur_state == state_t::body) parse_body();
-			if(cur_state == state_t::finish) parse_finish();
-		} while(cur_state == state_t::ready);
+		copy_buf(0, std::forward<B>(buf));
+		parse_content();
+	}
+
+	void operator()(std::size_t sz=0) {
+		trim_buf(sz);
+		parse_content();
 	}
 
 	std::size_t cached_size() const
 	{
 		return data.size();
 	}
+
+	auto create_buf(std::size_t sz)
+	{
+		created_buf = sz;
+		auto size = data.size();
+		data.resize(size + sz);
+		return std::span<value_type>(data.data(), size);
+	}
+
+	void trim_buf(std::size_t sz)
+	{
+		using namespace std::literals;
+		if(created_buf < sz)
+			throw std::runtime_error("trim buffer is bigger then bufer it self"s);
+		data.resize( data.size() - (created_buf - sz) );
+		created_buf = 0;
+	}
+
+
 };
 
 template<
