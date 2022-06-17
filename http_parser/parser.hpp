@@ -257,6 +257,11 @@ public:
 			if(cur_state == state_t::finish) parse_finish();
 		} while(cur_state == state_t::ready);
 	}
+
+	std::size_t cached_size() const
+	{
+		return data.size();
+	}
 };
 
 template<

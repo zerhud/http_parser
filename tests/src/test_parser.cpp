@@ -224,12 +224,14 @@ BOOST_FIXTURE_TEST_CASE(head_by_peaces, fixture)
 		BOOST_TEST(body.size() == 0);
 	};
 	acceptor("DELETE /path "sv);
+	BOOST_TEST(acceptor.cached_size() == 13);
 	BOOST_TEST(traits.count == 0);
 	acceptor("HTTP/1.1\r\nH"sv);
 	BOOST_TEST(traits.count == 0);
 	acceptor("1:v1\r\n\r"sv);
 	BOOST_TEST(traits.count == 0);
 	acceptor("\n"sv);
+	BOOST_TEST(acceptor.cached_size() == 0);
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 0);
 }
@@ -278,9 +280,12 @@ BOOST_FIXTURE_TEST_CASE(few_requests, fixture)
 		if(header.head().method() == "GET"sv) BOOST_TEST(header.head().url() == "/path"sv);
 		else if(header.head().method() == "POST"sv) BOOST_TEST(header.head().url() == "/pa/th?a=b"sv);
 	};
+	BOOST_TEST(acceptor.cached_size() == 0);
 	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nokGET /path"sv);
+	BOOST_TEST(acceptor.cached_size() == 9);
 	BOOST_TEST(traits.count == 1);
 	acceptor(" HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nokDEL /path HTTP/1.1\r\n\r\n"sv);
+	BOOST_TEST(acceptor.cached_size() == 0);
 	BOOST_TEST(traits.count == 3);
 }
 BOOST_FIXTURE_TEST_CASE(just_head, fixture)
@@ -290,8 +295,10 @@ BOOST_FIXTURE_TEST_CASE(just_head, fixture)
 		BOOST_TEST(header.head().method() == "GET"sv);
 		BOOST_TEST(header.head().url() == "/path"sv);
 	};
+	BOOST_TEST(acceptor.cached_size() == 0);
 	acceptor("GET /path HTTP/1.1\r\n\r\n"sv);
 	BOOST_TEST(traits.count == 1);
+	BOOST_TEST(acceptor.cached_size() == 0);
 }
 BOOST_AUTO_TEST_SUITE_END() // request
 
