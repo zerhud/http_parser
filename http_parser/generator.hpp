@@ -53,33 +53,37 @@ struct header {
 };
 header(const char*, const char*) -> header<std::string_view>;
 
-template<typename Container, typename StringView>
+template<
+        typename DataContainerFactory
+      , typename StringView = std::string_view
+      , typename DataContainer = decltype(std::declval<DataContainerFactory>()())
+      >
 class basic_generator {
 	template<typename T>
 	struct cvt_int{ T value; int base = 10; };
 
 	enum class state_t { simple, chunked, chunked_progress };
-	std::pmr::memory_resource* mem;
-	Container headers;
-	Container head;
+	DataContainerFactory dcf;
+	DataContainer headers;
+	DataContainer head;
 	methods cur_method = methods::get;
 	mutable state_t cur_state = state_t::simple;
 
-	void append(Container& con, StringView tail) const
+	void append(DataContainer& con, StringView tail) const
 	{
-		for(auto& c:tail) append(con, (typename Container::value_type)c);
+		for(auto& c:tail) append(con, (typename DataContainer::value_type)c);
 	}
 
 	template<std::size_t Cnt>
-	void append(Container& con, char(&str)[Cnt]) const
+	void append(DataContainer& con, char(&str)[Cnt]) const
 	{
 		for(std::size_t i=0;i<Cnt;++i)
-			append(con, Container::value_type(str[i]));
+			append(con, DataContainer::value_type(str[i]));
 	}
 
 	template<typename Arg, typename... Args>
 	requires( sizeof...(Args) != 0 )
-	void append(Container& con, Arg arg, Args... args) const
+	void append(DataContainer& con, Arg arg, Args... args) const
 	{
 		append(con, arg);
 		if constexpr (sizeof...(Args) != 0) append(con, args...);
@@ -88,23 +92,23 @@ class basic_generator {
 	template<typename T>
 	requires(
 	        !std::is_pointer_v<T>
-	     && !std::is_same_v<std::decay_t<T>, Container>
+	     && !std::is_same_v<std::decay_t<T>, DataContainer>
 	     && !details::is_instance<T, cvt_int>::value
 	        )
-	void append(Container& con, T val) const
+	void append(DataContainer& con, T val) const
 	{
-		con.push_back((typename Container::value_type)val);
+		con.push_back((typename DataContainer::value_type)val);
 	}
 
 	template<typename T>
-	requires( std::is_same_v<std::decay_t<T>, Container> )
-	void append(Container& con, const T& val) const
+	requires( std::is_same_v<std::decay_t<T>, DataContainer> )
+	void append(DataContainer& con, const T& val) const
 	{
 		for(auto& v:val) con.push_back(v);
 	}
 
 	template<typename T>
-	void append(Container& con, cvt_int<T> num) const {
+	void append(DataContainer& con, cvt_int<T> num) const {
 		std::array<char, std::numeric_limits<T>::digits10 + 1> str;
 		auto [ptr, ec] = std::to_chars(str.data(), str.data() + str.size(), num.value, num.base);
 		assert(ec == std::errc());
@@ -114,16 +118,16 @@ class basic_generator {
 
 	auto create_headers() const
 	{
-		Container ret{mem};
+		DataContainer ret = dcf();
 		for(auto& h:head) ret.push_back(h);
 		for(auto& h:headers) ret.push_back(h);
 		return ret;
 	}
 
 	template< typename Src >
-	Container create_simple_body(Src cnt) const
+	DataContainer create_simple_body(Src cnt) const
 	{
-		Container ret = create_headers();
+		DataContainer ret = create_headers();
 		if(cnt.size() != 0)
 			append(ret, "Content-Length: ", cvt_int{ cnt.size() }, "\r\n\r\n", cnt);
 		append(ret, "\r\n");
@@ -131,9 +135,9 @@ class basic_generator {
 	}
 
 	template< typename Src >
-	Container create_chunked_body(Src cnt) const
+	DataContainer create_chunked_body(Src cnt) const
 	{
-		Container ret{ mem };
+		DataContainer ret = dcf();
 		if(cnt.size() == 0) append(ret, "0\r\n");
 		else append(ret, cvt_int{ cnt.size(), 16 }, "\r\n", cnt);
 		append(ret, "\r\n");
@@ -141,7 +145,7 @@ class basic_generator {
 	}
 
 	template< typename Src >
-	Container create_body(Src cnt) const
+	DataContainer create_body(Src cnt) const
 	{
 		if(cur_state == state_t::simple)
 			return create_simple_body(std::forward<Src>(cnt));
@@ -159,15 +163,13 @@ class basic_generator {
 		throw std::logic_error("inner error (not all state supported)");
 	}
 public:
-	basic_generator()
-		: basic_generator(std::pmr::get_default_resource()) {}
-	basic_generator(std::pmr::memory_resource* mem)
-		: mem(mem)
-		, headers(mem)
-		, head(mem)
+	basic_generator() requires std::is_default_constructible_v<DataContainerFactory>
+	    : basic_generator(DataContainerFactory{}) {}
+	basic_generator(DataContainerFactory&& dcf)
+	    : dcf(std::move(dcf))
+	    , headers(this->dcf())
+	    , head(this->dcf())
 	{
-		if(!mem) throw std::runtime_error(
-			"cannot create generator without memory resource");
 	}
 
 	basic_generator& method(methods m)
@@ -189,7 +191,7 @@ public:
 		head.clear();
 		basic_uri_parser<StringView> prs(u);
 		append(head, to_string_view(cur_method));
-		append(head, (typename Container::value_type)0x20); // space
+		append(head, (typename DataContainer::value_type)0x20); // space
 		append(head, prs.request().empty() ? prs.path() : prs.request());
 		append(head, " HTTP/1.1\r\nHost: ");
 		append(head, prs.host());
@@ -203,12 +205,12 @@ public:
 		return *this;
 	}
 
-	Container body(StringView cnt) const
+	DataContainer body(StringView cnt) const
 	{
 		return create_body(cnt);
 	}
 
-	Container body(Container cnt) const
+	DataContainer body(DataContainer cnt) const
 	{
 		return create_body(cnt);
 	}

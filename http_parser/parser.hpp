@@ -17,19 +17,6 @@
 
 namespace http_parser {
 
-struct pmr_string_factory {
-	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
-	std::pmr::string operator()() const
-	{ return std::pmr::string{mem}; }
-};
-
-template<typename T>
-struct pmr_vector_t_factory {
-	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
-	std::pmr::vector<T> operator()() const
-	{ return std::pmr::vector<T>{mem}; }
-};
-
 template<typename Head, typename DataContainer>
 struct http1_parser_traits {
 	using head_t = Head;

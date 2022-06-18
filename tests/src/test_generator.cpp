@@ -3,6 +3,7 @@
 
 #include <boost/test/unit_test.hpp>
 #include <http_parser/generator.hpp>
+#include <http_parser/utils/factories.hpp>
 
 using namespace std::literals;
 
@@ -18,7 +19,7 @@ void check_string(std::string_view result, std::string_view right)
 
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(generator)
-using request_generator = http_parser::basic_generator<std::pmr::string, std::string_view>;
+using request_generator = http_parser::basic_generator<http_parser::pmr_string_factory>;
 BOOST_AUTO_TEST_SUITE(simple)
 BOOST_AUTO_TEST_CASE(example)
 {
@@ -49,7 +50,7 @@ BOOST_AUTO_TEST_CASE(example)
 BOOST_AUTO_TEST_CASE(example_data_vec)
 {
 	using request_generator = http_parser::basic_generator<
-	    std::pmr::vector<std::byte>, std::string_view>;
+	    http_parser::pmr_vector_t_factory<std::byte>, std::string_view>;
 	using namespace http_parser;
 	request_generator gen;
 	gen << uri("http://g.c/p/ath?a=1")
@@ -72,14 +73,10 @@ BOOST_AUTO_TEST_CASE(example_data_vec)
 	                        "ok\r\n"sv
 	           );
 }
-BOOST_AUTO_TEST_CASE(creation)
-{
-	BOOST_CHECK_THROW(request_generator{nullptr}, std::exception);
-}
 BOOST_AUTO_TEST_CASE(memory)
 {
 	std::pmr::unsynchronized_pool_resource mem;
-	request_generator gen(&mem);
+	request_generator gen(http_parser::pmr_string_factory{&mem});
 	gen.uri("http://y.d/other/path");
 
 	std::pmr::string right_body =

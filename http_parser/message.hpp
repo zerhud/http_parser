@@ -11,7 +11,7 @@
 #include "uri_parser.hpp"
 #include "utils/cvt.hpp"
 #include "utils/pos_string_view.hpp"
-#include "utils/inner_static_vector.hpp"
+#include "utils/factories.hpp"
 
 namespace http_parser {
 
@@ -22,22 +22,6 @@ struct header_view {
 
 	basic_position_string_view<Con> name;
 	basic_position_string_view<Con> value;
-};
-
-struct pmr_vector_factory {
-	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
-	template<typename T>
-	std::pmr::vector<T> operator()() const
-	{ return std::pmr::vector<T>{}; }
-};
-
-template<std::size_t N>
-struct static_vector_factory {
-	template<typename T>
-	auto operator()() const
-	{
-		return inner_static_vector<T, N>{};
-	}
 };
 
 template<

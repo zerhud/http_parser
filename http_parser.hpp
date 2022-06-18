@@ -19,7 +19,7 @@ constexpr std::size_t default_max_body_size = 4 * 1024;
 namespace pmr_vec {
 using data_type = std::pmr::vector<std::byte>;
 using uri_parser = http_parser::basic_uri_parser<std::string_view>;
-using generator = http_parser::basic_generator<data_type, std::string_view>;
+using generator = http_parser::basic_generator<pmr_vector_t_factory<std::byte>, std::string_view>;
 
 template<typename Head>
 struct http1_acceptor_traits : http_parser::http1_parser_traits<Head, data_type> {
@@ -41,7 +41,7 @@ namespace pmr_str {
 using data_type = std::pmr::string;
 using uri_parser = http_parser::basic_uri_parser<std::string_view>;
 using uri_wparser = http_parser::basic_uri_parser<std::wstring_view>;
-using generator = http_parser::basic_generator<data_type, std::string_view>;
+using generator = http_parser::basic_generator<pmr_string_factory, std::string_view>;
 
 template<typename Head>
 struct http1_acceptor_traits : http_parser::http1_parser_traits<Head, data_type> {
