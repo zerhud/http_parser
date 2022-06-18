@@ -97,6 +97,8 @@ public:
 	using traits_type = http1_parser_traits<message_t, DataContainer>;
 	using value_type = typename DataContainer::value_type;
 private:
+	using pos_view_t = basic_position_string_view<DataContainer>;
+
 	enum class state_t { ready, wait, head, headers, body, finish };
 
 	DataContainerFactory df;
@@ -105,7 +107,7 @@ private:
 	state_t cur_state = state_t::ready;
 	traits_type* traits;
 	DataContainer data;
-	basic_position_string_view<DataContainer> body_view;
+	pos_view_t body_view;
 	std::size_t big_body_pos = 0;
 	std::size_t created_buf = 0;
 
@@ -145,6 +147,7 @@ private:
 
 	void clean_body(std::size_t actual_pos)
 	{
+		assert( actual_pos <= data.size() );
 		if(data.size() - 1 <= actual_pos)
 			data.resize(parser_hdrs.finish_position());
 		else {
