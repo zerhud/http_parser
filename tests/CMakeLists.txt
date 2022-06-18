@@ -36,10 +36,10 @@ add_unit_test(server)
 if(UNIX)
 
 # linux specefiec tests
-add_unit_test(integrated)
+#add_unit_test(integrated)
 
-find_package(Boost COMPONENTS fiber context REQUIRED)
+#find_package(Boost COMPONENTS fiber context REQUIRED)
 
-target_link_libraries(test_integrated PRIVATE ${Boost_LIBRARIES} Threads::Threads)
+#target_link_libraries(test_integrated PRIVATE ${Boost_LIBRARIES} Threads::Threads)
 
 endif(UNIX)
