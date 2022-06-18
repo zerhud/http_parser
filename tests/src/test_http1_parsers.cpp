@@ -3,7 +3,6 @@
 
 #include <chrono>
 #include <boost/test/unit_test.hpp>
-#include <http_parser/utils/find.hpp>
 #include <http_parser/utils/headers_parser.hpp>
 #include <http_parser/utils/http1_head_parsers.hpp>
 #include <http_parser/utils/chunked_body_parser.hpp>
@@ -18,31 +17,6 @@ constexpr bool enable_speed_tests =
         false
         #endif
         ;
-
-BOOST_AUTO_TEST_SUITE(utils)
-BOOST_AUTO_TEST_SUITE(fast_find)
-BOOST_AUTO_TEST_CASE(simple)
-{
-	std::string data = "abc:abc:";
-	auto pos = http_parser::find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
-	BOOST_TEST(pos == 3);
-
-	data = "1234567:";
-	pos = http_parser::find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
-	BOOST_TEST(pos == 7);
-
-	data = "12345678:";
-	pos = http_parser::find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
-	BOOST_TEST(pos == 8);
-}
-BOOST_AUTO_TEST_CASE(over)
-{
-	std::string data = "123456789:";
-	auto pos = http_parser::find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
-	BOOST_TEST(pos == 9);
-}
-BOOST_AUTO_TEST_SUITE_END() // fast_find
-BOOST_AUTO_TEST_SUITE_END() // utils
 
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(http1_parsers)

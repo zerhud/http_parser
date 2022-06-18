@@ -11,8 +11,11 @@
 
 namespace http_parser {
 
-std::size_t find(std::uint64_t* data, std::size_t size, std::uint8_t symbol)
+template<typename S>
+requires (sizeof(S) == sizeof(std::byte)) // cannot search for few simbols (see tests)
+std::size_t find(std::uint64_t* data, std::size_t size, S symbol)
 {
+	constexpr std::size_t diff = sizeof(*data) - sizeof(symbol);
 	std::uint64_t mask1 = symbol;
 	std::uint64_t mask2 = mask1 << 8;
 	std::uint64_t mask3 = mask2 << 8;
@@ -21,8 +24,8 @@ std::size_t find(std::uint64_t* data, std::size_t size, std::uint8_t symbol)
 	std::uint64_t mask6 = mask5 << 8;
 	std::uint64_t mask7 = mask6 << 8;
 	std::uint64_t mask8 = mask7 << 8;
-	std::size_t dsize = size/8;
-	if(size%8!=0) ++dsize;
+	std::size_t dsize = size / sizeof(*data);
+	if(size%sizeof(*data)!=0) ++dsize;
 	for(std::size_t i=0;i<dsize;++i) {
 		if((data[i] & mask1) == mask1) return (i*8);
 		if((data[i] & mask2) == mask2) return (i*8)+1;
