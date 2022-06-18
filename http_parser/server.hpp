@@ -10,155 +10,128 @@
 #include <memory>
 #include <functional>
 #include <type_traits>
-#include "parser.hpp"
+#include <unordered_map>
+#include "http_parser.hpp"
 
 namespace http_parser {
 
-class http_request_handler {
-public:
-};
-
-class handler_descriptor {
-public:
-	virtual ~handler_descriptor () noexcept =default ;
-};
-
-template<typename Buffer>
-class data_receiver {
-public:
-	virtual ~data_receiver() noexcept =default ;
-	virtual void receive(typename Buffer::value_type* data, std::size_t sz) =0 ;
-	virtual void close() =0 ;
-	virtual std::size_t max_buffer_size() const =0 ;
-};
-
-template<typename Buffer>
-class tcp_socket {
-public:
-	using buffer_t = Buffer;
-
+struct tcp_socket {
 	virtual ~tcp_socket() noexcept =default ;
-	virtual void on_data(data_receiver<Buffer>* dr) =0 ;
-//	virtual std::size_t write(buffer_t data) =0 ;
-//	virtual bool is_in_progress(std::size_t ind) const =0 ;
+	virtual void reject() =0 ;
 };
 
-//TODO: 1. reject by tcp head: ip, port and so on if no handler matched
-//         so we need in a method in handler_descriptor_t for check it
 template<
-        typename IoBuf
-      , typename ContainerFactory
-      , typename DataContainerFactory
-      , std::size_t max_body_size = 4 * 1024
-      , std::size_t max_head_size = 1 * 1024
-      , typename TcpSocket = tcp_socket<IoBuf>
-      , typename Hndl = http_request_handler
-      , typename HndlDesckBase = handler_descriptor
+        typename CF = http_parser::pmr_vector_factory
+      , typename DF = http_parser::pmr_string_factory
+      , typename TcpSocket = tcp_socket
       >
-class server final {
+class server {
+	struct handler;
 public:
-	using buffer_t = IoBuf;
-	using handler_t = Hndl;
-	using socket_t = TcpSocket;
-	using handler_descriptor_t = HndlDesckBase;
-	using data_type = decltype(std::declval<DataContainerFactory>()());
-	using parser_t = http1_req_parser<ContainerFactory, DataContainerFactory, max_body_size, max_head_size>;
+	using handler_ptr = std::unique_ptr<handler>;
+	using parser_t = http_parser::pmr_str::http1_req_parser<>;
 	using message_t = parser_t::message_t;
-	using data_span = std::span<typename buffer_t::value_type>;
+	using data_view = parser_t::traits_type::data_view;
+	using string_view = std::string_view;
+	using handler_container = decltype(std::declval<CF>().template operator()<handler_ptr>());
+	using tcp_socket_t = TcpSocket;
+
+	using simple_body_handler = std::function<void(const message_t& msg,data_view body)>;
 private:
-	struct hndl_t;
-	struct active_hndl_t;
-	struct parser_traits : parser_t::traits_type {
-		using base_t = parser_t::traits_type;
-		using head_t = base_t::head_t;
-		using data_view = base_t::data_view;
-
+	struct handler {
 		server* self;
-		active_hndl_t* handler;
-		hndl_t* inner_handler;
+		std::pmr::string method, path;
+		simple_body_handler hndl;
 
-		void on_head(const head_t& head) override {}
-		void on_message(const head_t& head, const data_view& body) override {}
-		void on_error(const head_t& head, const data_view& body) override {}
-	} ;
-	struct inner_parser : data_receiver<buffer_t> {
-		parser_traits ptraits;
+		handler(server* s) : self(s) {assert(self);}
+	};
+
+	struct socket_handler : parser_t::traits_type {
+		server* self = nullptr;
+		handler* hndl = nullptr;
 		parser_t prs;
+		tcp_socket_t* sock;
 
-		inner_parser() : prs(&ptraits) {}
-
-		void receive(data_span data) override { prs(data); }
-
-		void close() override {
-			//TODO: finish somehow
-		}
-	};
-
-	struct hndl_t {
-		std::unique_ptr<handler_descriptor_t> desck;
-	};
-	struct active_hndl_t {
-		server* self;
-		std::shared_ptr<socket_t> sock;
-		std::shared_ptr<handler_t> hndl;
-		inner_parser parser;
-
-		active_hndl_t(server* s, std::shared_ptr<socket_t> sock, std::shared_ptr<handler_t> h)
+		socket_handler(server* s, tcp_socket_t* sock)
 		    : self(s)
+		    , prs(this, self->data_factory, self->container_factory)
 		    , sock(sock)
-		    , hndl(std::move(h))
-		{
-			sock->on_data(&parser);
+		{}
+
+		void find_hndl(const head_t& head) {
+			assert(self);
+			for(auto& hndl:self->handlers) {
+				if(hndl->path == head.head().url().path())
+					this->hndl = hndl.get();
+			}
+			//TODO: how to stop prase and remove this socket from this->connections?
+			if(!hndl) sock->reject();
 		}
-		void operator()(data_span data) {
+
+		void on_head(const head_t& head) override { find_hndl(head); }
+		void on_message(const head_t& head, const data_view& body, std::size_t tail) override
+		{
+			std::cout << "on_msg" << std::endl;
+			if(!hndl) find_hndl(head);
+			if(hndl) hndl->hndl(head, body);
+		}
+		void on_error(const head_t& head, const data_view& body) override
+		{
+			//TODO: and what we can do?
+		}
+
+		template<typename D>
+		void parse(D&& data)
+		{
+			using namespace std::literals;
+			std::cout << "here we are " << (hndl ? hndl->path : "[no path]"sv) << std::endl;
+			prs(std::forward<D>(data));
 		}
 	};
 
-	std::vector<hndl_t> hndls;
-	std::vector<active_hndl_t> actives;
-	ContainerFactory cf;
-	DataContainerFactory df;
+	handler_container handlers;
+	std::pmr::unordered_map<tcp_socket_t*,socket_handler> connections; //TODO: how to create it?
+	CF container_factory;
+	DF data_factory;
 public:
 
-	server() : server(ContainerFactory{}, DataContainerFactory{}) {}
-	server(ContainerFactory cf, DataContainerFactory df)
-	    : cf(std::move(cf))
-	    , df(std::move(df))
-	{}
-
-	~server() noexcept =default ;
-
-	handler_descriptor_t* reg(std::unique_ptr<handler_descriptor_t> hndl)
+	server(CF&& cf = CF{}, DF&& df = DF{})
+	requires ( std::is_constructible_v<CF> && std::is_constructible_v<DF> )
+	    : handlers(cf.template operator()<typename handler_container::value_type>())
+	    , container_factory(std::move(cf))
+	    , data_factory(std::move(df))
 	{
-		return hndls.emplace_back( hndl_t{std::move(hndl)} ).desck.get();
 	}
 
-	bool operator()(std::shared_ptr<socket_t> sock, data_span data)
+	void reg(string_view method, string_view path, simple_body_handler hndl)
 	{
-		for(std::size_t i=0;i<actives.size();++i) {
-			if(actives[i].sock == sock) {
-				actives[i](std::move(data));
-				return true;
-			}
-		}
-		actives.emplace_back( this, std::move(sock), nullptr )(std::move(data));
-		return true;
+		handlers.emplace_back(std::make_unique<handler>(this));
+		handlers.back()->method = method;
+		handlers.back()->path = path;
+		handlers.back()->hndl = std::move(hndl);
 	}
 
-	//TODO: return false if reject socket (see above)
-	bool operator()(std::shared_ptr<socket_t> sock)
+	template<typename D>
+	void operator()(tcp_socket_t* sock, D&& data)
 	{
-		for(std::size_t i=0;i<actives.size();++i) {
-			if(actives[i].sock == sock) {
-				actives[i]();
-				return true;
-			}
-		}
-		actives.emplace_back( this, std::move(sock), nullptr )();
-		return true;
+		connections.try_emplace(sock, this, sock);
+		auto pos = connections.find(sock);
+		assert(pos != connections.end());
+		if(pos!=connections.end())
+			pos->second.parse(std::forward<D>(data));
 	}
 
-	std::size_t active_count() const { return actives.size(); }
+	[[nodiscrad]] std::size_t open_sockets() const
+	{
+		return connections.size();
+	}
+
+	void close_socket(tcp_socket_t* sock)
+	{
+		auto pos = connections.find(sock);
+		if(pos!=connections.end()) connections.erase(pos);
+	}
 };
+
 
 } // namespace http_parser
