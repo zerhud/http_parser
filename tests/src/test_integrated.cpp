@@ -103,7 +103,7 @@ struct asio_acceptor {
 };
 
 using req_parser = http_parser::pmr_str::http1_req_parser<>;
-struct parser_traits : req_parser::traits_type {
+struct parser_acceptor : req_parser::acceptor_type {
 
 	std::string* gotten_data;
 	std::function<void(http_parser::pmr_str::data_type)> writer;
@@ -139,7 +139,7 @@ int main(int,char**)
 		            boost::fibers::fiber([&ioc,sock=std::move(sock),&gotten_data] () mutable {
 						    try {
 							    tcp_readwriter<512> rw;
-								integrated_test::parser_traits traits;
+								integrated_test::parser_acceptor traits;
 								traits.gotten_data = &gotten_data;
 								boost::beast::tcp_stream stream(std::move(sock));
 								traits.writer = [&stream,&rw](auto data) mutable {rw.write(stream, data).get();};

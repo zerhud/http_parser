@@ -22,7 +22,7 @@ using uri_parser = http_parser::basic_uri_parser<std::string_view>;
 using generator = http_parser::basic_generator<pmr_vector_t_factory<std::byte>, std::string_view>;
 
 template<typename Head>
-struct http1_acceptor_traits : http_parser::http1_parser_traits<Head, data_type> {
+struct http1_parser_acceptor : http_parser::http1_parser_acceptor<Head, data_type> {
 	std::pmr::memory_resource* mem;
 	data_type create_data_container() override { return data_type{mem}; }
 	std::pmr::vector<header_view<data_type>> create_headers_container() override
@@ -44,7 +44,7 @@ using uri_wparser = http_parser::basic_uri_parser<std::wstring_view>;
 using generator = http_parser::basic_generator<pmr_string_factory, std::string_view>;
 
 template<typename Head>
-struct http1_acceptor_traits : http_parser::http1_parser_traits<Head, data_type> {
+struct http1_parser_acceptor : http_parser::http1_parser_acceptor<Head, data_type> {
 	std::pmr::memory_resource* mem;
 	data_type create_data_container() override { return data_type{mem}; }
 	std::pmr::vector<header_view<data_type>> create_headers_container() override

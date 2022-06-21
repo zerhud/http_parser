@@ -10,13 +10,13 @@
 using namespace std::literals;
 
 BOOST_AUTO_TEST_SUITE(core)
-BOOST_AUTO_TEST_SUITE(acceptor)
+BOOST_AUTO_TEST_SUITE(parser)
 
 BOOST_AUTO_TEST_SUITE(request)
 
 using parser_t = http_parser::pmr_str::http1_req_parser<100>;
 using http1_msg_t = parser_t::message_t;
-struct test_acceptor : parser_t::traits_type {
+struct test_acceptor : parser_t::acceptor_type {
 	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
 	std::size_t count = 0;
 	std::size_t head_count = 0;
@@ -41,10 +41,10 @@ struct test_acceptor : parser_t::traits_type {
 
 struct fixture {
 	test_acceptor traits;
-	parser_t acceptor;
+	parser_t parser;
 
 	fixture()
-	    : acceptor( &traits )
+	    : parser( &traits )
 	{
 	}
 };
@@ -59,7 +59,7 @@ BOOST_FIXTURE_TEST_CASE(head, fixture)
 		BOOST_TEST(header.headers().size() == 1);
 		BOOST_TEST(body.size() == 0);
 	};
-	acceptor("DELETE /path HTTP/1.1\r\nH1:v1\r\n\r\n"sv);
+	parser("DELETE /path HTTP/1.1\r\nH1:v1\r\n\r\n"sv);
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 1);
 }
@@ -83,7 +83,7 @@ BOOST_FIXTURE_TEST_CASE(simple_body, fixture)
 		BOOST_TEST(header.headers().size() == 2);
 		BOOST_TEST(header.headers().content_size().value() == 2);
 	};
-	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nok_extra"sv);
+	parser("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nok_extra"sv);
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 1);
 }
@@ -135,19 +135,19 @@ BOOST_FIXTURE_TEST_CASE(chunked_body, fixture)
 		BOOST_TEST(traits.count == 0);
 		BOOST_TEST(header.headers().is_chunked() == true);
 	};
-	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nokA\r\n12345678905a"sv);
+	parser("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nokA\r\n12345678905a"sv);
 	BOOST_TEST(traits.count == 2);
 	BOOST_TEST(traits.head_count == 1);
 
-	acceptor("\r\n"sv);
+	parser("\r\n"sv);
 	BOOST_TEST(traits.count == 2);
 	BOOST_TEST(traits.head_count == 1);
 
-	acceptor("1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678900\r"sv);
+	parser("1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678900\r"sv);
 	BOOST_TEST(traits.count == 3);
 	BOOST_TEST(traits.head_count == 1);
 
-	acceptor("\n"sv);
+	parser("\n"sv);
 	BOOST_TEST(traits.count == 4);
 	BOOST_TEST(traits.head_count == 1);
 }
@@ -167,7 +167,7 @@ BOOST_FIXTURE_TEST_CASE(chunked_body_trash, fixture)
 		}
 	};
 
-	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nTransfer-Encoding: chunked\r\n\r\n2\r\noktrashA\r\n12345678905a"sv);
+	parser("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nTransfer-Encoding: chunked\r\n\r\n2\r\noktrashA\r\n12345678905a"sv);
 	BOOST_TEST(traits.count == 2);
 	BOOST_TEST(traits.head_count == 1);
 }
@@ -177,12 +177,12 @@ BOOST_FIXTURE_TEST_CASE(chunked_body_error, fixture)
 		BOOST_TEST(traits.count == 0);
 		BOOST_TEST(traits.head_count == 1);
 	};
-	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nTransfer-Encoding: chunked\r\n\r\n\r\nok"sv);
+	parser("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nTransfer-Encoding: chunked\r\n\r\n\r\nok"sv);
 	BOOST_TEST(traits.error_count == 1);
 }
 BOOST_FIXTURE_TEST_CASE(body_limit_overflow, fixture)
 {
-	BOOST_CHECK_NO_THROW( acceptor(
+	BOOST_CHECK_NO_THROW( parser(
 	                       "POST /p HTTP/1.1\r\nContent-Length: 120\r\n\r\n"
 	                       "1234567890123456789012345678901234567890"
 	                       "1234567890123456789012345678901234567890"
@@ -192,14 +192,14 @@ BOOST_FIXTURE_TEST_CASE(body_limit_overflow, fixture)
 		BOOST_TEST( tail == 2 );
 		BOOST_TEST( body.size() == 118 );
 	};
-	acceptor("12345678901234567890123456789012345678"sv);
+	parser("12345678901234567890123456789012345678"sv);
 
 	traits.check = [this](const http1_msg_t& header, const auto& body, std::size_t tail) {
 		BOOST_TEST(traits.count == 2);
 		BOOST_TEST(tail == 0);
 		BOOST_TEST( body.size() == 2 );
 	};
-	acceptor("90"sv);
+	parser("90"sv);
 
 	BOOST_TEST( traits.count == 2 );
 
@@ -207,7 +207,7 @@ BOOST_FIXTURE_TEST_CASE(body_limit_overflow, fixture)
 		BOOST_TEST(tail == 0);
 		BOOST_TEST(body.size() == 80);
 	};
-	acceptor("POST /p HTTP/1.1\r\nContent-Length: 80\r\n\r\n" // 40 symbols
+	parser("POST /p HTTP/1.1\r\nContent-Length: 80\r\n\r\n" // 40 symbols
 	         "1234567890123456789012345678901234567890"
 	         "1234567890123456789012345678901234567890"
 	         ""sv);
@@ -223,15 +223,15 @@ BOOST_FIXTURE_TEST_CASE(head_by_peaces, fixture)
 		BOOST_TEST(header.headers().size() == 1);
 		BOOST_TEST(body.size() == 0);
 	};
-	acceptor("DELETE /path "sv);
-	BOOST_TEST(acceptor.cached_size() == 13);
+	parser("DELETE /path "sv);
+	BOOST_TEST(parser.cached_size() == 13);
 	BOOST_TEST(traits.count == 0);
-	acceptor("HTTP/1.1\r\nH"sv);
+	parser("HTTP/1.1\r\nH"sv);
 	BOOST_TEST(traits.count == 0);
-	acceptor("1:v1\r\n\r"sv);
+	parser("1:v1\r\n\r"sv);
 	BOOST_TEST(traits.count == 0);
-	acceptor("\n"sv);
-	BOOST_TEST(acceptor.cached_size() == 0);
+	parser("\n"sv);
+	BOOST_TEST(parser.cached_size() == 0);
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 1);
 }
@@ -264,7 +264,7 @@ BOOST_FIXTURE_TEST_CASE(memory, fixture)
 		BOOST_TEST(header.headers().content_size().value() == 2);
 	};
 	BOOST_TEST_CHECKPOINT("start parse");
-	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nok_extra"sv);
+	parser("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nok_extra"sv);
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 1);
 }
@@ -280,12 +280,12 @@ BOOST_FIXTURE_TEST_CASE(few_requests, fixture)
 		if(header.head().method() == "GET"sv) BOOST_TEST(header.head().url() == "/path"sv);
 		else if(header.head().method() == "POST"sv) BOOST_TEST(header.head().url() == "/pa/th?a=b"sv);
 	};
-	BOOST_TEST(acceptor.cached_size() == 0);
-	acceptor("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nokGET /path"sv);
-	BOOST_TEST(acceptor.cached_size() == 9);
+	BOOST_TEST(parser.cached_size() == 0);
+	parser("POST /pa/th?a=b HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nokGET /path"sv);
+	BOOST_TEST(parser.cached_size() == 9);
 	BOOST_TEST(traits.count == 1);
-	acceptor(" HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nokDEL /path HTTP/1.1\r\n\r\n"sv);
-	BOOST_TEST(acceptor.cached_size() == 0);
+	parser(" HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nokDEL /path HTTP/1.1\r\n\r\n"sv);
+	BOOST_TEST(parser.cached_size() == 0);
 	BOOST_TEST(traits.count == 3);
 }
 BOOST_FIXTURE_TEST_CASE(just_head, fixture)
@@ -299,10 +299,10 @@ BOOST_FIXTURE_TEST_CASE(just_head, fixture)
 		BOOST_TEST(header.head().method() == "GET"sv);
 		BOOST_TEST(header.head().url() == "/path"sv);
 	};
-	BOOST_TEST(acceptor.cached_size() == 0);
-	acceptor("GET /path HTTP/1.1\r\n\r\n"sv);
+	BOOST_TEST(parser.cached_size() == 0);
+	parser("GET /path HTTP/1.1\r\n\r\n"sv);
 	BOOST_TEST(traits.count == 1);
-	BOOST_TEST(acceptor.cached_size() == 0);
+	BOOST_TEST(parser.cached_size() == 0);
 }
 BOOST_FIXTURE_TEST_CASE(without_buffer, fixture)
 {
@@ -311,27 +311,27 @@ BOOST_FIXTURE_TEST_CASE(without_buffer, fixture)
 		BOOST_TEST(header.head().method() == "GET"sv);
 		BOOST_TEST(header.head().url() == "/path"sv);
 	};
-	BOOST_TEST(acceptor.cached_size() == 0);
+	BOOST_TEST(parser.cached_size() == 0);
 
 	auto data = "GET /path HTTP/1.1\r\n\r\n"sv;
 
-	auto buf = acceptor.create_buf(data.size() + 10);
-	BOOST_TEST(acceptor.cached_size() == data.size() + 10);
+	auto buf = parser.create_buf(data.size() + 10);
+	BOOST_TEST(parser.cached_size() == data.size() + 10);
 	for(std::size_t i=0;i<data.size();++i) buf[i] = data[i];
 
-	acceptor.trim_buf(data.size());
-	BOOST_TEST(acceptor.cached_size() == data.size());
+	parser.trim_buf(data.size());
+	BOOST_TEST(parser.cached_size() == data.size());
 
-	acceptor(0);
+	parser(0);
 	BOOST_TEST(traits.count == 1);
-	BOOST_TEST(acceptor.cached_size() == 0);
+	BOOST_TEST(parser.cached_size() == 0);
 }
 BOOST_AUTO_TEST_SUITE_END() // request
 
 BOOST_AUTO_TEST_SUITE(response)
 using parser_t = http_parser::pmr_str::http1_resp_parser<100>;
 using http1_msg_t = parser_t::message_t;
-struct test_acceptor : parser_t::traits_type {
+struct test_acceptor : parser_t::acceptor_type {
 	std::size_t count = 0;
 	std::size_t head_count = 0;
 	std::function<void(const http1_msg_t& req_head_message)> head_check;
@@ -346,7 +346,7 @@ struct test_acceptor : parser_t::traits_type {
 BOOST_AUTO_TEST_CASE(simple_haed)
 {
 	test_acceptor traits;
-	parser_t acceptor( &traits );
+	parser_t parser( &traits );
 	traits.check = [](const http1_msg_t& header, const auto& body, std::size_t tail) {
 		BOOST_TEST(tail == 0);
 		BOOST_TEST(header.head().code == 300);
@@ -355,14 +355,14 @@ BOOST_AUTO_TEST_CASE(simple_haed)
 		BOOST_TEST(header.headers().size() == 1);
 		BOOST_TEST(body.size() == 0);
 	};
-	acceptor("HTTP/1.1 300 TEST\r\nH1:v1\r\n\r\n"sv);
+	parser("HTTP/1.1 300 TEST\r\nH1:v1\r\n\r\n"sv);
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 1);
 }
 BOOST_AUTO_TEST_CASE(simple_body)
 {
 	test_acceptor traits;
-	parser_t acceptor( &traits );
+	parser_t parser( &traits );
 	traits.check = [&traits](const http1_msg_t& header, const auto& body, std::size_t tail) {
 		BOOST_TEST(tail == 0);
 		BOOST_TEST(header.head().code == 250);
@@ -379,11 +379,11 @@ BOOST_AUTO_TEST_CASE(simple_body)
 		BOOST_TEST(header.headers().size() == 2);
 		BOOST_TEST(header.headers().content_size().value() == 2);
 	};
-	acceptor("HTTP/1.1 250 OK\r\nH1:v1\r\nContent-Length: 2\r\n\r\nok_extra"sv);
+	parser("HTTP/1.1 250 OK\r\nH1:v1\r\nContent-Length: 2\r\n\r\nok_extra"sv);
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(traits.head_count == 1);
 }
 BOOST_AUTO_TEST_SUITE_END() // response
 
-BOOST_AUTO_TEST_SUITE_END() // acceptor
+BOOST_AUTO_TEST_SUITE_END() // parser
 BOOST_AUTO_TEST_SUITE_END() // core

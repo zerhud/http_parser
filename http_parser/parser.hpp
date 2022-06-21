@@ -18,11 +18,11 @@
 namespace http_parser {
 
 template<typename Head, typename DataContainer>
-struct http1_parser_traits {
+struct http1_parser_acceptor {
 	using head_t = Head;
 	using data_view = basic_position_string_view<DataContainer>;
 
-	virtual ~http1_parser_traits () noexcept =default ;
+	virtual ~http1_parser_acceptor () noexcept =default ;
 
 	virtual void on_head(const head_t& head) {}
 	virtual void on_message(const head_t& head, const data_view& body, std::size_t tail) {}
@@ -81,7 +81,7 @@ class http1_parser final : protected BaseAcceptor<DataContainer, ContainerFactor
 	using base_acceptor_t = BaseAcceptor<DataContainer, ContainerFactory>;
 public:
 	using message_t = base_acceptor_t::message_t;
-	using traits_type = http1_parser_traits<message_t, DataContainer>;
+	using acceptor_type = http1_parser_acceptor<message_t, DataContainer>;
 	using value_type = typename DataContainer::value_type;
 private:
 	using pos_view_t = basic_position_string_view<DataContainer>;
@@ -92,7 +92,7 @@ private:
 	ContainerFactory cf;
 
 	state_t cur_state = state_t::ready;
-	traits_type* traits;
+	acceptor_type* acceptor;
 	DataContainer data;
 	pos_view_t body_view;
 	std::size_t big_body_pos = 0;
@@ -103,7 +103,7 @@ private:
 	headers_parser<DataContainer, ContainerFactory> parser_hdrs;
 
 	void parse_head() {
-		assert(traits);
+		assert(acceptor);
 		basic_position_string_view<DataContainer> head_view(&data, 0, 0);
 		http1_request_head_parser prs(head_view);
 		if(base_acceptor_t::parser_head_base(result_msg, prs)) {
@@ -120,8 +120,8 @@ private:
 	void headers_ready() {
 		body_view.assign(parser_hdrs.finish_position(), 0);
 		const bool body_exists = result_msg.headers().body_exists();
-		traits->on_head(result_msg);
-		if(!body_exists) traits->on_message( result_msg, body_view, 0 );
+		acceptor->on_head(result_msg);
+		if(!body_exists) acceptor->on_message( result_msg, body_view, 0 );
 		cur_state = body_exists ? state_t::body : state_t::finish;
 	}
 	void parse_body() {
@@ -167,11 +167,11 @@ private:
 		const bool on_big_tail = overflow && size <= (big_body_pos + body_view.size()) ;
 		body_view.resize(size);
 		if(ready) {
-			traits->on_message(result_msg, body_view, 0);
+			acceptor->on_message(result_msg, body_view, 0);
 			cur_state = state_t::finish;
 		} else if(on_big_body || on_big_tail) {
 			big_body_pos += body_view.size();
-			traits->on_message(result_msg, body_view, size - big_body_pos);
+			acceptor->on_message(result_msg, body_view, size - big_body_pos);
 			if(size <= big_body_pos) cur_state = state_t::finish;
 		}
 		if(ready || on_big_body || on_big_tail)
@@ -182,8 +182,8 @@ private:
 	{
 		chunked_body_parser prs(body_view);
 		while(prs()) {
-			if(prs.error()) traits->on_error(result_msg, body_view);
-			else if(prs.ready()) traits->on_message(result_msg, prs.result(), 0);
+			if(prs.error()) acceptor->on_error(result_msg, body_view);
+			else if(prs.ready()) acceptor->on_message(result_msg, prs.result(), 0);
 		}
 		clean_body(prs.end_pos() + parser_hdrs.finish_position());
 		if(prs.finish()) cur_state = state_t::finish;
@@ -224,7 +224,7 @@ public:
 	    : df(std::move(other.df))
 	    , cf(std::move(other.cf))
 	    , cur_state(state_t::wait)
-	    , traits(other.traits)
+	    , acceptor(other.acceptor)
 	    , data(std::move(other.data))
 	    , body_view(&data, 0, 0)
 	    , result_msg(&data, this->cf)
@@ -236,11 +236,11 @@ public:
 	}
 
 
-	http1_parser(traits_type* traits) : http1_parser(traits, DataContainerFactory{}, ContainerFactory{}) {}
-	http1_parser(traits_type* traits, DataContainerFactory df, ContainerFactory cf)
+	http1_parser(acceptor_type* acceptor) : http1_parser(acceptor, DataContainerFactory{}, ContainerFactory{}) {}
+	http1_parser(acceptor_type* acceptor, DataContainerFactory df, ContainerFactory cf)
 	    : df(std::move(df)), cf(std::move(cf))
 	    , cur_state(state_t::wait)
-	    , traits(traits)
+	    , acceptor(acceptor)
 	    , data(this->df())
 	    , body_view(&data, 0, 0)
 	    , result_msg(&data, this->cf)
