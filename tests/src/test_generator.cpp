@@ -32,7 +32,7 @@ BOOST_AUTO_TEST_CASE(example)
 	                              "Host: g.c\r\n"
 	                              "User-Agent: Test\r\n"
 	                              "Content-Length: 7\r\n\r\n"
-	                              "content\r\n"
+	                              "content"
 	           );
 
 	gen.uri("http://y.d/other/path");
@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE(example)
 	                              "Host: y.d\r\n"
 	                              "User-Agent: Test\r\n"
 	                              "Content-Length: 5\r\n\r\n"
-	                              "other\r\n"
+	                              "other"
 	           );
 	BOOST_TEST(gen.body(""sv) == "GET /other/path HTTP/1.1\r\n"
 	                           "Host: y.d\r\n"
@@ -62,7 +62,7 @@ BOOST_AUTO_TEST_CASE(example_data_vec)
 	                        "Host: g.c\r\n"
 	                        "User-Agent: Test\r\n"
 	                        "Content-Length: 7\r\n\r\n"
-	                        "content\r\n"sv
+	                        "content"sv
 	           );
 	result = gen.body({(std::byte)0x6f,(std::byte)0x6b});
 	sv_result = std::string_view ( (char*)result.data(), result.size() );
@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(example_data_vec)
 	                        "Host: g.c\r\n"
 	                        "User-Agent: Test\r\n"
 	                        "Content-Length: 2\r\n\r\n"
-	                        "ok\r\n"sv
+	                        "ok"sv
 	           );
 }
 BOOST_AUTO_TEST_CASE(memory)
@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE(memory)
 	           "Host: y.d\r\n"
 	           "User-Agent: test\r\n"
 	           "Content-Length: 2\r\n\r\n"
-	           "ok\r\n"
+	           "ok"
 	            ;
 
 	struct raii {
@@ -99,6 +99,16 @@ BOOST_AUTO_TEST_CASE(memory)
 	auto body = gen.header("User-Agent", "test").body("ok"sv);
 	BOOST_TEST(body.c_str() == right_body.c_str());
 	check_string(body, right_body);
+}
+BOOST_AUTO_TEST_CASE(just_body_size)
+{
+	request_generator gen;
+	gen.uri("http://g.c");
+	BOOST_TEST(gen.body(10) == "GET / HTTP/1.1\r\nHost: g.c\r\nContent-Length: 10\r\n\r\n"sv);
+	gen.make_chunked();
+	BOOST_TEST(gen.body(10) == "GET / HTTP/1.1\r\nHost: g.c\r\nTransfer-Encoding: chunked\r\n\r\na\r\n"sv);
+	BOOST_TEST(gen.body(3) == "3\r\n"sv);
+	BOOST_TEST(gen.body(0) == "0\r\n"sv);
 }
 BOOST_AUTO_TEST_SUITE_END() // simple
 BOOST_AUTO_TEST_SUITE(chunked)
@@ -159,7 +169,7 @@ BOOST_AUTO_TEST_CASE(response)
 	BOOST_TEST(gen.body("content"sv) == "HTTP/1.1 300 ok\r\n"
 	                              "test: value\r\n"
 	                              "Content-Length: 7\r\n\r\n"
-	                              "content\r\n"
+	                              "content"
 	           );
 }
 BOOST_AUTO_TEST_SUITE_END() // generator

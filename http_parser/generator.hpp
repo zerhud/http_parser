@@ -124,14 +124,32 @@ class basic_generator {
 		return ret;
 	}
 
+	template<typename C>
+	C& set_content_length(C& con, std::size_t len) const
+	{
+		if(con.size() != 0)
+			append(con, "Content-Length: ", cvt_int{ len }, "\r\n\r\n");
+		return con;
+	}
+
 	template< typename Src >
 	DataContainer create_simple_body(Src cnt) const
 	{
 		DataContainer ret = create_headers();
-		if(cnt.size() != 0)
-			append(ret, "Content-Length: ", cvt_int{ cnt.size() }, "\r\n\r\n", cnt);
-		append(ret, "\r\n");
+		if(cnt.size() == 0) append(ret, "\r\n");
+		else append(set_content_length(ret, cnt.size()), cnt);
 		return ret;
+	}
+
+	template<typename Con>
+	Con& create_chunked_body(Con& con, std::size_t sz) const
+	{
+		if(cur_state == state_t::chunked) {
+			append(con, "\r\n");
+			cur_state = state_t::chunked_progress;
+		}
+		append(con, cvt_int{sz, 16}, "\r\n");
+		return con;
 	}
 
 	template< typename Src >
@@ -226,6 +244,14 @@ public:
 			header("Transfer-Encoding", "chunked");
 		cur_state = state_t::chunked;
 		return *this;
+	}
+
+	DataContainer body(std::size_t sz)
+	{
+		auto ret = cur_state == state_t::chunked_progress ? dcf() : create_headers();
+		if(!chunked()) set_content_length(ret, sz);
+		else create_chunked_body(ret, sz);
+		return ret;
 	}
 };
 
