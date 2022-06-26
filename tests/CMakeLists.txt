@@ -31,6 +31,7 @@ add_unit_test(messages)
 add_unit_test(http1_parsers)
 add_unit_test(parser)
 add_unit_test(utils)
+add_unit_test(acceptors)
 
 if(UNIX)
 

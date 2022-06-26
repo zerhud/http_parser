@@ -24,9 +24,74 @@ struct http1_parser_acceptor {
 
 	virtual ~http1_parser_acceptor () noexcept =default ;
 
+	virtual bool can_accept(const head_t& head) { return true; }
 	virtual void on_head(const head_t& head) {}
 	virtual void on_message(const head_t& head, const data_view& body, std::size_t tail) {}
 	virtual void on_error(const head_t& head, const data_view& body) {}
+};
+
+template<typename Head, typename DataContainer, template<class> class Container = std::pmr::vector>
+struct http1_parser_chain_acceptor : public http1_parser_acceptor<Head, DataContainer> {
+	using base_acc_type = http1_parser_acceptor<Head, DataContainer>;
+	using head_t = base_acc_type::head_t;
+	using data_view = base_acc_type::data_view;
+private:
+	Container<std::shared_ptr<base_acc_type>> queue;
+public:
+	template<typename... T>
+	http1_parser_chain_acceptor(T... args)
+	    : queue(std::forward<T>(args)...)
+	{}
+
+	void add(std::shared_ptr<base_acc_type> acc) {
+		queue.push_back(acc);
+	}
+
+	template<typename T>
+	requires( std::is_base_of_v<base_acc_type, std::decay_t<T>> )
+	void add(T&& acc) {
+		struct inner_acc : public base_acc_type {
+			T acc;
+			inner_acc(T&& acc) : acc(std::forward<T>(acc)) {}
+			bool can_accept(const base_acc_type::head_t &head) override { return acc.can_accept(head); }
+			void on_head(const base_acc_type::head_t &head) override { acc.on_head(head); }
+			void on_message(const base_acc_type::head_t &head, const base_acc_type::data_view &body, std::size_t tail) override
+			{ return acc.on_message(head, body, tail); }
+			void on_error(const base_acc_type::head_t &head, const base_acc_type::data_view &body) override
+			{ return acc.on_error(head, body); }
+		} ;
+		queue.emplace_back(std::make_shared<inner_acc>(std::forward<T>(acc)));
+	}
+
+	std::size_t chain_size() const
+	{
+		return queue.size();
+	}
+
+	decltype(queue)::value_type search(const head_t& head) const {
+		for(auto& a:queue) if(a->can_accept(head)) return a;
+		return nullptr;
+	}
+
+	bool can_accept(const head_t& head) override
+	{
+		return search(head) != nullptr;
+	}
+
+	void on_head(const head_t& head) override
+	{
+		auto a = search(head);
+		if(a) a->on_head(head);
+	}
+
+	void on_message(const head_t& head, const data_view& body, std::size_t tail) override {
+		auto a = search(head);
+		if(a) a->on_message(head, body, tail);
+	}
+	void on_error(const head_t& head, const data_view& body) override {
+		auto a = search(head);
+		if(a) a->on_error(head, body);
+	}
 };
 
 
@@ -81,8 +146,13 @@ class http1_parser final : protected BaseAcceptor<DataContainer, ContainerFactor
 	using base_acceptor_t = BaseAcceptor<DataContainer, ContainerFactory>;
 public:
 	using message_t = base_acceptor_t::message_t;
-	using acceptor_type = http1_parser_acceptor<message_t, DataContainer>;
 	using value_type = typename DataContainer::value_type;
+
+	template<template<class, class> class A>
+	using acceptor_template = A<message_t, DataContainer>;
+
+	using acceptor_type = acceptor_template<http1_parser_acceptor>;
+	using chain_acceptor_type =  acceptor_template<http1_parser_chain_acceptor>;
 private:
 	using pos_view_t = basic_position_string_view<DataContainer>;
 
