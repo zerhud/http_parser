@@ -149,6 +149,8 @@ BOOST_AUTO_TEST_CASE(http_methods)
 	BOOST_TEST( msg.find_header("Transfer-Encoding").value() == "chunked"sv );
 	BOOST_TEST( msg.is_chunked() == true );
 	BOOST_TEST( msg.body_exists() == true );
+
+	BOOST_TEST(msg.upgrade_header().has_value() == false);
 }
 BOOST_AUTO_TEST_CASE(body_exists_with_chunked)
 {
@@ -160,6 +162,18 @@ BOOST_AUTO_TEST_CASE(body_exists_with_chunked)
 	BOOST_TEST( msg.find_header("Transfer-Encoding").value() == "chunked"sv );
 	BOOST_TEST( msg.is_chunked() == true );
 	BOOST_TEST( msg.body_exists() == true );
+}
+BOOST_AUTO_TEST_CASE(upgrade_header)
+{
+	std::string data = "Content-Length: 2809\r\nUpgrade: ws";
+	header_message msg(&data, pmr_vector_factory{});
+	BOOST_CHECK_NO_THROW( msg.add_header_name(0, 14) );
+	BOOST_CHECK_NO_THROW( msg.last_header_value(16, 4) );
+	BOOST_CHECK_NO_THROW( msg.add_header_name(22, 7) );
+	BOOST_CHECK_NO_THROW( msg.last_header_value(31, 2) );
+	BOOST_TEST(*msg.content_size() == 2809);
+	BOOST_TEST(msg.upgrade_header().has_value() == true);
+	BOOST_TEST(msg.upgrade_header().value() == "ws"sv);
 }
 BOOST_AUTO_TEST_SUITE_END() // headers
 BOOST_AUTO_TEST_SUITE(request)

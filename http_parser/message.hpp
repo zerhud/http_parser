@@ -100,6 +100,12 @@ public:
 		auto size = content_size();
 		return (size && *size != 0) || is_chunked();
 	}
+
+	auto upgrade_header() const
+	{
+		using namespace std::literals;
+		return find_header("Upgrade"sv);
+	}
 };
 
 template<typename DataContainer>
