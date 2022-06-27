@@ -318,7 +318,7 @@ public:
 	{
 	}
 
-	template<Buffer B>
+	template<buffer B>
 	void operator()(B&& buf) {
 		using namespace std::literals;
 		assert( cur_state <= state_t::finish );
