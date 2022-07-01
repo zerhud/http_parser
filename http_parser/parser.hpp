@@ -146,15 +146,16 @@ class http1_parser final : protected BaseAcceptor<DataContainer, ContainerFactor
 	using base_acceptor_t = BaseAcceptor<DataContainer, ContainerFactory>;
 public:
 	using message_t = base_acceptor_t::message_t;
-	using value_type = typename DataContainer::value_type;
+	using data_container_t = DataContainer;
+	using value_type = typename data_container_t::value_type;
 
 	template<template<class, class> class A>
-	using acceptor_template = A<message_t, DataContainer>;
+	using acceptor_template = A<message_t, data_container_t>;
 
 	using acceptor_type = acceptor_template<http1_parser_acceptor>;
 	using chain_acceptor_type =  acceptor_template<http1_parser_chain_acceptor>;
+	using data_view_t = basic_position_string_view<data_container_t>;
 private:
-	using pos_view_t = basic_position_string_view<DataContainer>;
 
 	enum class state_t { ready, wait, head, headers, body, finish };
 
@@ -163,18 +164,18 @@ private:
 
 	state_t cur_state = state_t::ready;
 	acceptor_type* acceptor;
-	DataContainer data;
-	pos_view_t body_view;
+	data_container_t data;
+	data_view_t body_view;
 	std::size_t big_body_pos = 0;
 	std::size_t created_buf = 0;
 
 	message_t result_msg;
 
-	headers_parser<DataContainer, ContainerFactory> parser_hdrs;
+	headers_parser<data_container_t, ContainerFactory> parser_hdrs;
 
 	void parse_head() {
 		assert(acceptor);
-		basic_position_string_view<DataContainer> head_view(&data, 0, 0);
+		data_view_t head_view(&data, 0, 0);
 		http1_request_head_parser prs(head_view);
 		if(base_acceptor_t::parser_head_base(result_msg, prs)) {
 			cur_state = state_t::head;
@@ -306,7 +307,9 @@ public:
 	}
 
 
-	http1_parser(acceptor_type* acceptor) : http1_parser(acceptor, DataContainerFactory{}, ContainerFactory{}) {}
+	http1_parser(acceptor_type* acceptor)
+	    requires( std::is_default_constructible_v<DataContainerFactory> && std::is_default_constructible_v<ContainerFactory> )
+	    : http1_parser(acceptor, DataContainerFactory{}, ContainerFactory{}) {}
 	http1_parser(acceptor_type* acceptor, DataContainerFactory df, ContainerFactory cf)
 	    : df(std::move(df)), cf(std::move(cf))
 	    , cur_state(state_t::wait)
