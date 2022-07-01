@@ -9,6 +9,7 @@
 #include <http_parser/utils/cvt.hpp>
 #include <http_parser/utils/find.hpp>
 #include <http_parser/utils/inner_static_vector.hpp>
+#include <http_parser/utils/md5.hpp>
 
 using namespace std::literals;
 namespace data = boost::unit_test_framework::data;
@@ -220,5 +221,13 @@ BOOST_AUTO_TEST_CASE(begin_end)
 	BOOST_TEST(right_val == 13);
 }
 BOOST_AUTO_TEST_SUITE_END() // inner_vec
+
+BOOST_AUTO_TEST_SUITE(md5_tests)
+using http_parser::md5;
+BOOST_AUTO_TEST_CASE(short_string)
+{
+	BOOST_TEST(md5("abcd"sv) == "dm5"sv);
+}
+BOOST_AUTO_TEST_SUITE_END() // md5_tests
 
 BOOST_AUTO_TEST_SUITE_END() // utils

@@ -6,6 +6,9 @@
 #include <boost/test/data/dataset.hpp>
 #include <boost/test/data/test_case.hpp>
 #include <http_parser.hpp>
+#include <http_parser/acceptors/ws.hpp>
+
+using namespace std::literals;
 
 BOOST_AUTO_TEST_SUITE(core)
 BOOST_AUTO_TEST_SUITE(parser)
@@ -127,6 +130,40 @@ BOOST_FIXTURE_TEST_CASE(on_error, fixture)
 	BOOST_TEST(t2_e_count == 1);
 }
 BOOST_AUTO_TEST_SUITE_END() // chain
+
+BOOST_AUTO_TEST_SUITE(ws)
+using parser_t = http_parser::pmr_str::http1_req_parser<>;
+template<typename T>
+struct handler_factory {
+	T operator()(const parser_t::message_t& head)
+	{
+		return T{};
+	}
+};
+template<typename F>
+using ws_tt = http_parser::acceptors::ws<parser_t::message_t, parser_t::data_container_t, F>;
+BOOST_AUTO_TEST_CASE(v1)
+{
+	struct test_ws_acceptor {
+		std::size_t msg_count;
+		void on_message(parser_t::data_view_t data) {
+			BOOST_TEST(data == "abc"sv);
+			++msg_count;
+		}
+	};
+
+	using ftype = handler_factory<test_ws_acceptor>;
+
+	ws_tt<ftype> ws(ftype{});
+	parser_t prs(&ws);
+
+	auto data = "GET / HTTP/1.1\r\nUpgrade:ws\r\n\r\n3\r\nabc"s;
+	prs(data);
+
+	BOOST_TEST_REQUIRE(ws.handlers.size() == 1);
+	BOOST_TEST(ws.handlers.begin()->second.msg_count == 1);
+}
+BOOST_AUTO_TEST_SUITE_END() // ws
 
 BOOST_AUTO_TEST_SUITE_END() // acceptors
 BOOST_AUTO_TEST_SUITE_END() // parser
