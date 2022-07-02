@@ -24,15 +24,21 @@ struct http1_parser_acceptor {
 
 	virtual ~http1_parser_acceptor () noexcept =default ;
 
-	virtual bool can_accept(const head_t& head) { return true; }
 	virtual void on_head(const head_t& head) {}
 	virtual void on_message(const head_t& head, const data_view& body, std::size_t tail) {}
 	virtual void on_error(const head_t& head, const data_view& body) {}
 };
 
+template<typename Head, typename DataContainer>
+struct chainable_acceptor : public http1_parser_acceptor<Head, DataContainer> {
+	using head_t = http1_parser_acceptor<Head, DataContainer>::head_t;
+	using data_view = http1_parser_acceptor<Head, DataContainer>::data_view;
+	virtual bool can_accept(const head_t& head) { return true; }
+};
+
 template<typename Head, typename DataContainer, template<class> class Container = std::pmr::vector>
-struct http1_parser_chain_acceptor : public http1_parser_acceptor<Head, DataContainer> {
-	using base_acc_type = http1_parser_acceptor<Head, DataContainer>;
+struct http1_parser_chain_acceptor : public chainable_acceptor<Head, DataContainer> {
+	using base_acc_type = chainable_acceptor<Head, DataContainer>;
 	using head_t = base_acc_type::head_t;
 	using data_view = base_acc_type::data_view;
 private:

@@ -25,7 +25,6 @@ struct test_acceptor : parser_t::acceptor_type {
 	std::function<void(const http1_msg_t& req_head_message, const data_view& body)> error_check;
 	std::function<void(const http1_msg_t& req_head_message, const data_view& body, std::size_t tail)> check;
 
-	bool can_accept(const head_t &head) override { return true; }
 	void on_head(const http1_msg_t& head) override { ++head_count; if(head_check) head_check(head); }
 	void on_message(const http1_msg_t& head, const data_view& body, std::size_t tail) override {
 		++count;
@@ -338,7 +337,6 @@ struct test_acceptor : parser_t::acceptor_type {
 	std::function<void(const http1_msg_t& req_head_message)> head_check;
 	std::function<void(const http1_msg_t& req_head_message, const data_view& body, std::size_t tail)> check;
 
-	bool can_accept(const head_t &head) override { return true; }
 	void on_head(const http1_msg_t& head) override { ++head_count; if(head_check) head_check(head); }
 	void on_message(const http1_msg_t& head, const data_view& body, std::size_t tail) override {
 		++count;

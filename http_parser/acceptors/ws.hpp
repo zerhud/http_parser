@@ -21,8 +21,8 @@ template<
         typename Factory,
         template<class,class> class Container = std::pmr::unordered_map
         >
-struct ws : public http1_parser_acceptor<Head, DataContainer> {
-	using base_t = http1_parser_acceptor<Head, DataContainer>;
+struct ws : public http1_parser_chain_acceptor<Head, DataContainer> {
+	using base_t = http1_parser_chain_acceptor<Head, DataContainer>;
 	using head_t = base_t::head_t;
 	using data_view = base_t::data_view;
 	using handler_t = decltype(std::declval<Factory>()(std::declval<head_t>()));
