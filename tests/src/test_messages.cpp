@@ -163,6 +163,22 @@ BOOST_AUTO_TEST_CASE(body_exists_with_chunked)
 	BOOST_TEST( msg.is_chunked() == true );
 	BOOST_TEST( msg.body_exists() == true );
 }
+BOOST_AUTO_TEST_CASE(body_exists_with_upgrade)
+{
+	std::string data = "Upgrade: ws\r\nConnection: Upgrade";
+	header_message msg(&data, pmr_vector_factory{});
+	BOOST_TEST( msg.body_exists() == false );
+	BOOST_CHECK_NO_THROW( msg.add_header_name(0, 7) );
+	BOOST_CHECK_NO_THROW( msg.last_header_value(9, 2) );
+	BOOST_TEST( msg.upgrade_header().value() == "ws"sv );
+	BOOST_TEST( msg.body_exists() == false );
+
+	BOOST_CHECK_NO_THROW( msg.add_header_name(13, 10) );
+	BOOST_CHECK_NO_THROW( msg.last_header_value(25, 8) );
+	BOOST_TEST( msg.find_header("Connection").value() == "Upgrade"sv );
+
+	BOOST_TEST( msg.body_exists() == true );
+}
 BOOST_AUTO_TEST_CASE(upgrade_header)
 {
 	std::string data = "Content-Length: 2809\r\nUpgrade: ws";

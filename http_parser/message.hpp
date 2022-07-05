@@ -97,8 +97,12 @@ public:
 
 	bool body_exists() const
 	{
+		using namespace std::literals;
 		auto size = content_size();
-		return (size && *size != 0) || is_chunked();
+		return
+		        (size && *size != 0)
+		     || is_chunked()
+		     || (upgrade_header().has_value() && find_header("Connection") == "Upgrade"sv);
 	}
 
 	auto upgrade_header() const
