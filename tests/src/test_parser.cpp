@@ -333,6 +333,20 @@ BOOST_FIXTURE_TEST_CASE(without_buffer, fixture)
 	BOOST_TEST(traits.count == 1);
 	BOOST_TEST(parser.cached_size() == 0);
 }
+BOOST_FIXTURE_TEST_CASE(on_message_then_upgrade, fixture)
+{
+	traits.check = [this](const http1_msg_t& header, const auto& body, std::size_t tail) {
+		BOOST_TEST(tail == 0);
+		BOOST_TEST(header.head().method() == "GET"sv);
+		BOOST_TEST(header.head().url() == "/"sv);
+		BOOST_TEST(body == "ab"sv);
+	};
+	auto data = "GET / HTTP/1.1\r\nConnection: Upgrade\r\nUpgrade: np\r\n\r\nab"sv;
+	auto buf = parser.create_buf(data.size());
+	for(std::size_t i=0;i<data.size();++i) buf[i] = data[i];
+	parser(data.size());
+	BOOST_TEST(traits.count == 1);
+}
 BOOST_AUTO_TEST_SUITE_END() // request
 
 BOOST_AUTO_TEST_SUITE(response)
