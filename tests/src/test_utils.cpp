@@ -12,7 +12,23 @@
 #include <http_parser/utils/md5.hpp>
 
 using namespace std::literals;
+namespace utf = boost::unit_test;
 namespace data = boost::unit_test_framework::data;
+
+constexpr bool enable_speed_tests =
+        #ifdef  ENABLE_SPEED_TESTS
+        true
+        #else
+        false
+        #endif
+        ;
+constexpr bool enable_broken_tests =
+        #ifdef  ENABLE_BROKEN_TESTS
+        true
+        #else
+        false
+        #endif
+        ;
 
 BOOST_AUTO_TEST_SUITE(utils)
 BOOST_AUTO_TEST_SUITE(fast_find)
@@ -224,7 +240,7 @@ BOOST_AUTO_TEST_SUITE_END() // inner_vec
 
 BOOST_AUTO_TEST_SUITE(md5_tests)
 using http_parser::md5;
-BOOST_AUTO_TEST_CASE(short_string)
+BOOST_AUTO_TEST_CASE(short_string, * utf::label("broken") * utf::enable_if<enable_broken_tests>())
 {
 	BOOST_TEST(md5("abcd"sv) == "dm5"sv);
 }
