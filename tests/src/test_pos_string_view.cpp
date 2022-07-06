@@ -121,6 +121,25 @@ BOOST_AUTO_TEST_CASE(resize)
 	view.resize(10);
 	BOOST_TEST(view == "abc1234567"sv);
 }
+BOOST_AUTO_TEST_CASE(as)
+{
+	auto data = "abc"s;
+	psv_t view(&data);
+	auto sv = view.as<char>();
+	static_assert(std::is_same_v<decltype(sv), std::string_view>, "as must returns string view");
+	BOOST_TEST(sv == "abc"sv);
+}
+BOOST_AUTO_TEST_CASE(contains)
+{
+	auto data = "somestrtest"s;
+	psv_t view(&data);
+	BOOST_TEST(view.contains("s"sv) == true);
+	BOOST_TEST(view.contains("q"sv) == false);
+	BOOST_TEST(view.contains("str"sv) == true);
+	BOOST_TEST(view.contains("strs"sv) == false);
+	BOOST_TEST(view.contains("test"sv) == true);
+	BOOST_TEST(view.contains("somestrtesta"sv) == false);
+}
 BOOST_AUTO_TEST_SUITE_END() // pos_string_view
 BOOST_AUTO_TEST_SUITE_END() // utils
 

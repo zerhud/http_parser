@@ -73,6 +73,17 @@ public:
 
 	void advance_to_end() { assert(src); len = src->size() - pos; }
 
+	template<typename V>
+	bool contains(V tmpl) const
+	{
+		if(size() < tmpl.size()) return false;
+		std::size_t end = size() - tmpl.size();
+		for(std::size_t i=0;i<=end;++i)
+			if(substr(i, tmpl.size()) == tmpl)
+				return true;
+		return false;
+	}
+
 	basic_position_string_view<Container> substr(std::size_t p) const
 	{
 		basic_position_string_view<Container> ret(src);
