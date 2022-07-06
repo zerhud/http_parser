@@ -270,7 +270,9 @@ BOOST_FIXTURE_TEST_CASE(memory, fixture)
 }
 BOOST_FIXTURE_TEST_CASE(few_requests, fixture)
 {
-	traits.check = [this](const http1_msg_t& header, const auto& body, std::size_t tail) {
+	std::vector<std::string> methods;
+	traits.check = [this,&methods](const http1_msg_t& header, const auto& body, std::size_t tail) {
+		methods.emplace_back(header.head().method());
 		BOOST_TEST(tail == 0);
 		if(header.head().method() != "DEL"sv) {
 			BOOST_TEST(header.headers().size() == 2);
@@ -287,6 +289,11 @@ BOOST_FIXTURE_TEST_CASE(few_requests, fixture)
 	parser(" HTTP/1.1\r\nH1:v1\r\nContent-Length: 2\r\n\r\nokDEL /path HTTP/1.1\r\n\r\n"sv);
 	BOOST_TEST(parser.cached_size() == 0);
 	BOOST_TEST(traits.count == 3);
+
+	BOOST_TEST_REQUIRE(methods.size() == 3);
+	BOOST_TEST(methods[0] == "POST"sv);
+	BOOST_TEST(methods[1] == "GET"sv);
+	BOOST_TEST(methods[2] == "DEL"sv);
 }
 BOOST_FIXTURE_TEST_CASE(just_head, fixture)
 {
