@@ -155,13 +155,18 @@ BOOST_AUTO_TEST_CASE(v1)
 	using ftype = handler_factory<test_ws_acceptor>;
 
 	ws_tt<ftype> ws(ftype{});
-	parser_t prs(&ws);
+	parser_t prs(&ws), prs2(&ws);
 
-	auto data = "GET / HTTP/1.1\r\nUpgrade:ws\r\n\r\n3\r\nabc"s;
+	auto data = "GET / HTTP/1.1\r\nUpgrade: ws\r\nConnection: Upgrade\r\n\r\n"s;
+	prs2(data);
+	BOOST_TEST_REQUIRE(ws.handlers.size() == 0);
+
+	data = "GET / HTTP/1.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\nabc"s;
 	prs(data);
 
 	BOOST_TEST_REQUIRE(ws.handlers.size() == 1);
-	BOOST_TEST(ws.handlers.begin()->second.msg_count == 1);
+	BOOST_TEST_REQUIRE(ws.handlers.begin()->second.hndl.has_value() == true);
+	BOOST_TEST(ws.handlers.begin()->second.hndl->msg_count == 1);
 }
 BOOST_AUTO_TEST_SUITE_END() // ws
 

@@ -28,12 +28,12 @@ struct ws : public http1_parser_chain_acceptor<Head, DataContainer> {
 	using handler_t = decltype(std::declval<Factory>()(std::declval<head_t>()));
 
 	struct handler_info {
-		handler_t hndl;
-		std::chrono::steady_clock::time_point last_access;
+		std::optional<handler_t> hndl;
+		std::chrono::steady_clock::time_point last_access = std::chrono::steady_clock::now();
 	};
 
 	Factory handler_factory;
-	Container<head_t*, handler_t> handlers;
+	Container<const head_t*, handler_info> handlers;
 
 	template<typename... Args>
 	ws(Factory&& f, Args... args)
@@ -43,19 +43,24 @@ struct ws : public http1_parser_chain_acceptor<Head, DataContainer> {
 	}
 
 	bool can_accept(const head_t& head) override {
-		std::cout << "test" << std::endl;
 		using namespace std::literals;
 		auto val = head.headers().upgrade_header();
-		if(val) std::cout << *val << std::endl;
-		return val ? false : true;
-//		                     val->contains("websocket"sv);
+		return val ? val->contains("websocket"sv) : false;
 	}
 	void on_head(const head_t& head) override {
-		std::cout << "head" << std::endl;
-		;
 	}
-	void on_message(const head_t& head, const data_view& body, std::size_t tail) override {}
-	void on_error(const head_t& head, const data_view& body) override {}
+	void on_message(const head_t& head, const data_view& body, std::size_t tail) override {
+		if(!can_accept(head)) return;
+		auto& hndl = handlers[&head];
+		if(!hndl.hndl) hndl.hndl = create_new(head);
+		hndl.last_access = std::chrono::steady_clock::now();
+		assert(hndl.hndl.has_value());
+		hndl.hndl->on_message(body);
+	}
+	void on_error(const head_t& head, const data_view& body) override {
+	}
+private:
+	inline auto create_new(const head_t& head) { return handler_factory(head); }
 };
 
 } // namespace http_parser::acceptors

@@ -207,6 +207,10 @@ private:
 			parse_single_body(*size);
 		else if(result_msg.headers().is_chunked())
 			parse_chunked_body();
+		else if(auto uph = result_msg.headers().upgrade_header();uph) {
+			acceptor->on_message(result_msg, body_view, 0);
+			clean_body(parser_hdrs.finish_position());
+		}
 	}
 
 	void clean_body(std::size_t actual_pos)
