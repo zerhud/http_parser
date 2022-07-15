@@ -132,14 +132,14 @@ BOOST_AUTO_TEST_CASE(speed, * utf::label("broken") * utf::enable_if<enable_speed
 		find(data.data(), data.size(), (std::uint64_t)0x3A3A3A3A'3A3A3A3A);
 	auto end = std::chrono::high_resolution_clock::now();
 	auto diff1 = end - start;
-	BOOST_TEST(std::chrono::duration_cast<std::chrono::nanoseconds>(diff1).count() < 1);
+	BOOST_TEST(std::chrono::duration_cast<std::chrono::nanoseconds>(diff1).count() < 50);
 
 	auto str = "::::::::"sv;
 	start = std::chrono::high_resolution_clock::now();
 	for(std::size_t i=0;i<10'000'000;++i) data.find(str);
 	end = std::chrono::high_resolution_clock::now();
 	auto diff2 = end - start;
-	BOOST_TEST(std::chrono::duration_cast<std::chrono::nanoseconds>(diff2).count() < 1);
+	BOOST_TEST(std::chrono::duration_cast<std::chrono::nanoseconds>(diff2).count() < 50);
 }
 BOOST_AUTO_TEST_SUITE_END() // fast_find
 BOOST_AUTO_TEST_SUITE_END() // utils
