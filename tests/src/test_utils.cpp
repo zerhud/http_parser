@@ -36,21 +36,21 @@ using http_parser::find;
 BOOST_AUTO_TEST_CASE(simple)
 {
 	std::string data = "abc:abc:";
-	auto pos = find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
+	auto pos = find(data.data(), data.size(), (std::uint8_t)0x3A);
 	BOOST_TEST(pos == 3);
 
 	data = "1234567:";
-	pos = find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
+	pos = find(data.data(), data.size(), (std::uint8_t)0x3A);
 	BOOST_TEST(pos == 7);
 
 	data = "12345678:";
-	pos = find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
+	pos = find(data.data(), data.size(), (std::uint8_t)0x3A);
 	BOOST_TEST(pos == 8);
 }
 BOOST_AUTO_TEST_CASE(over)
 {
 	std::string data = "123456789:";
-	auto pos = find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
+	auto pos = find(data.data(), data.size(), (std::uint8_t)0x3A);
 	BOOST_TEST(pos == 9);
 }
 BOOST_DATA_TEST_CASE(find_8, data::xrange(17), count)
@@ -59,7 +59,7 @@ BOOST_DATA_TEST_CASE(find_8, data::xrange(17), count)
 		std::string data(i, 'n');
 		data += ":"s + std::string(count-i, 'n');
 		BOOST_TEST_CONTEXT("data " << data) {
-			auto pos = find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
+			auto pos = find(data.data(), data.size(), (std::uint8_t)0x3A);
 			BOOST_TEST(pos == i);
 		}
 	}
@@ -70,21 +70,20 @@ BOOST_DATA_TEST_CASE(not_found_8, data::xrange(17), count)
 		std::string data(i, 'n');
 		data += "r"s + std::string(count-i, 'n');
 		BOOST_TEST_CONTEXT("data " << data) {
-			auto pos = find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
+			auto pos = find(data.data(), data.size(), (std::uint8_t)0x3A);
 			BOOST_TEST(data.size() <= pos);
 		}
 	}
 }
-/*
 BOOST_DATA_TEST_CASE(few_symbols, data::xrange(17), count)
 {
 	std::string data = "1:34::::90";
 	std::size_t pos = 0;
-	pos = find((std::uint64_t*)data.data(), data.size(), (std::uint32_t)0x3A3A3A3A);
+	pos = find(data.data(), data.size(), (std::uint32_t)0x3A3A3A3A);
 	BOOST_TEST(pos == 4);
 
 	data = "1:34567890::::";
-	pos = find((std::uint64_t*)data.data(), data.size(), (std::uint32_t)0x3A3A3A3A);
+	pos = find(data.data(), data.size(), (std::uint32_t)0x3A3A3A3A);
 	BOOST_TEST(pos != data.size());
 	BOOST_TEST(pos == 10);
 
@@ -92,7 +91,7 @@ BOOST_DATA_TEST_CASE(few_symbols, data::xrange(17), count)
 		std::string data(i, 'n');
 		data += "::::"s + std::string(count-i, 'n');
 		BOOST_TEST_CONTEXT("data " << data) {
-			auto pos = find((std::uint64_t*)data.data(), data.size(), (std::uint32_t)0x3A3A3A3A);
+			auto pos = find(data.data(), data.size(), (std::uint32_t)0x3A3A3A3A);
 			BOOST_TEST(pos == i);
 		}
 	}
@@ -103,7 +102,7 @@ BOOST_DATA_TEST_CASE(not_found_32, data::xrange(17), count)
 		std::string data(i, 'n');
 		data += ":::"s + std::string(count-i, 'n');
 		BOOST_TEST_CONTEXT("data " << data) {
-			auto pos = find((std::uint64_t*)data.data(), data.size(), (std::uint32_t)0x3A3A3A3A);
+			auto pos = find(data.data(), data.size(), (std::uint32_t)0x3A3A3A3A);
 			BOOST_TEST(pos == data.size());
 		}
 	}
@@ -111,18 +110,37 @@ BOOST_DATA_TEST_CASE(not_found_32, data::xrange(17), count)
 BOOST_AUTO_TEST_CASE(not_found)
 {
 	auto data = ":34567890:::"s;
-	auto pos = find((std::uint64_t*)data.data(), data.size(), (std::uint32_t)0x3A3A3A3A);
+	auto pos = find(data.data(), data.size(), (std::uint32_t)0x3A3A3A3A);
 	BOOST_TEST(pos == data.size());
 
 	data = ":2134139iueofjspogjjgpsgjsdjgpsjgposjghjj34567890:::"s;
-	pos = find((std::uint64_t*)data.data(), data.size(), (std::uint32_t)0x3A3A3A3A);
+	pos = find(data.data(), data.size(), (std::uint32_t)0x3A3A3A3A);
 	BOOST_TEST(pos == data.size());
 
 	data = "2134139iueofjspogjjgpsgjsdjgpsjgposjghjj34567890"s;
-	pos = find((std::uint64_t*)data.data(), data.size(), (std::uint8_t)0x3A);
+	pos = find(data.data(), data.size(), (std::uint8_t)0x3A);
 	BOOST_TEST(pos == data.size());
 }
-*/
+BOOST_AUTO_TEST_CASE(speed, * utf::label("broken") * utf::enable_if<enable_speed_tests>())
+{
+	auto data = ":2134139iueofjspogjjgpsgjsdjgpsjgposjghjj34567890::::::::f"sv;
+	auto right_pos = data.size()-4;
+	std::size_t pos = data.size();
+
+	auto start = std::chrono::high_resolution_clock::now();
+	for(std::size_t i=0;i<10'000'000;++i)
+		find(data.data(), data.size(), (std::uint64_t)0x3A3A3A3A'3A3A3A3A);
+	auto end = std::chrono::high_resolution_clock::now();
+	auto diff1 = end - start;
+	BOOST_TEST(std::chrono::duration_cast<std::chrono::nanoseconds>(diff1).count() < 1);
+
+	auto str = "::::::::"sv;
+	start = std::chrono::high_resolution_clock::now();
+	for(std::size_t i=0;i<10'000'000;++i) data.find(str);
+	end = std::chrono::high_resolution_clock::now();
+	auto diff2 = end - start;
+	BOOST_TEST(std::chrono::duration_cast<std::chrono::nanoseconds>(diff2).count() < 1);
+}
 BOOST_AUTO_TEST_SUITE_END() // fast_find
 BOOST_AUTO_TEST_SUITE_END() // utils
 

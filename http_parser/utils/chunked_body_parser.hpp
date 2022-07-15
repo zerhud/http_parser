@@ -49,7 +49,7 @@ class chunked_body_parser {
 		return true;
 	}
 	bool psize() {
-		auto npos = find((std::uint64_t*)src.data(), src.size(), (std::uint8_t)'\n');
+		auto npos = find(src.data(), src.size(), (std::uint8_t)'\n');
 		if(npos == 0 || src.size() <= npos) return false;
 		if(npos < 2) {
 			cur_state = state_t::error;
