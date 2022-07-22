@@ -19,7 +19,7 @@ struct pmr_vector_factory {
 	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
 	template<typename T>
 	std::pmr::vector<T> operator()() const
-	{ return std::pmr::vector<T>{}; }
+	{ return std::pmr::vector<T>{mem}; }
 };
 
 template<std::size_t N>

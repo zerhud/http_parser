@@ -52,5 +52,26 @@ BOOST_AUTO_TEST_CASE(directory)
 	r("/other/tail"sv);
 	BOOST_TEST(t3==2);
 }
+BOOST_AUTO_TEST_CASE(creation)
+{
+	http_parser::directory_router default_construtible{};
+
+	std::pmr::unsynchronized_pool_resource mr;
+	auto dr = std::pmr::get_default_resource();
+	std::pmr::set_default_resource( std::pmr::null_memory_resource() );
+	std::shared_ptr<std::pmr::memory_resource> memory_raii(&mr, [dr](auto){
+		std::pmr::set_default_resource( dr );
+	});
+
+	http_parser::directory_router r((std::pmr::memory_resource*)&mr, http_parser::pmr_vector_factory{&mr});
+	BOOST_TEST(r.size() == 0);
+	r("/test"sv, []{});
+	BOOST_TEST(r.size() == 1);
+
+	http_parser::directory_router r2( std::move(r) );
+	BOOST_TEST(r2.size() == 1);
+	r2("/other", []{})("/", []{})("/ttt", []{});
+	BOOST_TEST(r2.size() == 4);
+}
 BOOST_AUTO_TEST_SUITE_END() // router
 BOOST_AUTO_TEST_SUITE_END() // utils

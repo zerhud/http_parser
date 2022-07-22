@@ -8,6 +8,7 @@
  *************************************************************************/
 
 #include <memory_resource>
+#include "factories.hpp"
 
 namespace http_parser {
 
@@ -44,17 +45,32 @@ using caller_ptr = std::unique_ptr<caller<S>, caller_deleter<R, S>>;
 } // namespace directory_router_details
 
 template<
-	  typename ContainerFactory
-	, typename MR
+	  typename ContainerFactory = pmr_vector_factory
+	, typename MR = std::pmr::memory_resource
 	, typename StringView = std::string_view
 	, typename Container = decltype(std::declval<ContainerFactory>().template operator()<directory_router_details::caller_ptr<MR, StringView>>())
 	>
 struct directory_router final {
 
+	using caller_ptr = directory_router_details::caller_ptr<MR, StringView>;
+
+	directory_router(directory_router&& other)
+	    : mem(other.mem)
+	    , factory(std::move(other.factory))
+	    , routes(factory.template operator()<caller_ptr>())
+	{
+		routes = std::move(other.routes);
+	}
+
+	explicit directory_router(MR* mr = std::pmr::get_default_resource())
+	    requires( std::is_default_constructible_v<ContainerFactory> && std::is_same_v<MR, std::pmr::memory_resource> )
+	    : directory_router( mr, ContainerFactory{} )
+	{}
+
 	directory_router(MR* mr, ContainerFactory cf)
-		: mem(mr)
-		, factory(cf)
-		, routes(cf.template operator()<directory_router_details::caller_ptr<MR, StringView>>())
+	    : mem(mr)
+	    , factory(std::move(cf))
+	    , routes(factory.template operator()<caller_ptr>())
 	{
 	}
 
@@ -71,6 +87,8 @@ struct directory_router final {
 		for(auto& r:routes) if(r->match(route)) r->call(route);
 		return *this;
 	}
+
+	auto size() { return routes.size(); }
 private:
 	template<typename Functor>
 	void add_substr(StringView route, Functor&& fnc)
