@@ -82,10 +82,13 @@ struct directory_router final {
 		return *this;
 	}
 
-	const auto& operator()(StringView route) const
+	bool operator()(StringView route) const
 	{
-		for(auto& r:routes) if(r->match(route)) r->call(route);
-		return *this;
+		for(auto& r:routes) {
+			if(r->match(route))
+				return r->call(route), true;
+		}
+		return false;
 	}
 
 	auto size() { return routes.size(); }

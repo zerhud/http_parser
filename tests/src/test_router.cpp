@@ -51,10 +51,13 @@ BOOST_AUTO_TEST_CASE(directory)
 	r("/eq"sv);
 	r("/other/tail"sv);
 	BOOST_TEST(t3==2);
+
+	BOOST_TEST(r("/nothing"sv) == false);
+	BOOST_TEST(r("/test"sv) == true);
 }
 BOOST_AUTO_TEST_CASE(creation)
 {
-	http_parser::directory_router default_construtible{};
+	http_parser::directory_router default_construtible;
 
 	std::pmr::unsynchronized_pool_resource mr;
 	auto dr = std::pmr::get_default_resource();
