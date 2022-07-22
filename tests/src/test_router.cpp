@@ -20,10 +20,12 @@ BOOST_AUTO_TEST_CASE(directory)
 	std::pmr::memory_resource* mem = std::pmr::get_default_resource();
 
 	http_parser::directory_router r(mem, http_parser::pmr_vector_factory{});
-	std::size_t t1=0, t2=0;
+	std::size_t t1=0, t2=0, t3=0;
 	r("/test"sv, [&t1]{++t1;})
 	 ("/test/"sv, [&t2]{++t2;})
 	 ("/can_compile"sv, []{})
+	 ("/other/"sv, [&t3](std::string_view tail){ ++t3; BOOST_TEST(tail == "tail"); })
+	 ("/eq"sv, [&t3](std::string_view path){ ++t3; BOOST_TEST(path == "/eq"); })
 	 ;
 
 	r("/"sv);
@@ -45,6 +47,10 @@ BOOST_AUTO_TEST_CASE(directory)
 	r("/test/abc"sv);
 	BOOST_TEST(t1==1);
 	BOOST_TEST(t2==2);
+
+	r("/eq"sv);
+	r("/other/tail"sv);
+	BOOST_TEST(t3==2);
 }
 BOOST_AUTO_TEST_SUITE_END() // router
 BOOST_AUTO_TEST_SUITE_END() // utils

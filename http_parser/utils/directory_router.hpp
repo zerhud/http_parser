@@ -15,13 +15,9 @@ namespace directory_router_details {
 
 template<typename StringView>
 struct caller {
-
 	virtual ~caller(){}
-	virtual void call() const =0 ;
+	virtual void call(StringView sv) const =0 ;
 	virtual bool match(StringView sv) const =0 ;
-
-	void operator()() { call(); }
-
 };
 
 template<typename R, typename S>
@@ -65,49 +61,68 @@ struct directory_router final {
 	template<typename Functor>
 	auto& operator()(StringView route, Functor&& fnc)
 	{
-		struct helper : directory_router_details::caller<StringView> {
-			Functor fnc;
-			StringView pattern;
-			helper(Functor&& fnc, StringView p) : fnc(std::forward<Functor>(fnc)), pattern(p) {}
-			void call() const override { fnc(); }
-		};
-		struct helper_substr : helper {
-			helper_substr(Functor&& fnc, StringView p) : helper(std::forward<Functor>(fnc), p) {}
-			bool match(StringView sv) const override {
-				return directory_router_details::match_substr(helper::pattern, sv);
-			}
-		};
-		struct helper_exactly : helper {
-			helper_exactly(Functor&& fnc, StringView p) : helper(std::forward<Functor>(fnc), p) {}
-			bool match(StringView sv) const override {
-				return helper::pattern == sv;
-			}
-		};
-
-		directory_router_details::caller_deleter<MR, StringView> deleter(mem, sizeof(helper));
-		auto allocated = mem->allocate(sizeof(helper));
-		if(route.back() == '/') {
-			directory_router_details::caller_ptr ptr(
-			        new (allocated) helper_substr(std::forward<Functor>(fnc), route),
-			        std::move(deleter)
-			        );
-			routes.emplace_back(std::move(ptr));
-		} else {
-			directory_router_details::caller_ptr ptr(
-			        new (allocated) helper_exactly(std::forward<Functor>(fnc), route),
-			        std::move(deleter)
-			        );
-			routes.emplace_back(std::move(ptr));
-		}
+		if(route.back() == '/') add_substr(route, std::forward<Functor>(fnc));
+		else add_exactly(route, std::forward<Functor>(fnc));
 		return *this;
 	}
 
 	const auto& operator()(StringView route) const
 	{
-		for(auto& r:routes) if(r->match(route)) (*r)();
+		for(auto& r:routes) if(r->match(route)) r->call(route);
 		return *this;
 	}
 private:
+	template<typename Functor>
+	void add_substr(StringView route, Functor&& fnc)
+	{
+		struct helper_substr : directory_router_details::caller<StringView> {
+			Functor fnc;
+			StringView pattern;
+			helper_substr(Functor&& fnc, StringView p) : fnc(std::forward<Functor>(fnc)), pattern(p) {}
+			bool match(StringView sv) const override {
+				return directory_router_details::match_substr(pattern, sv);
+			}
+			void call(StringView sv) const override {
+				if constexpr (requires(StringView s){fnc(s);}) fnc(sv.substr(pattern.size()));
+				else fnc();
+			}
+		};
+
+		add<helper_substr>(route, std::forward<Functor>(fnc));
+	}
+
+	template<typename Functor>
+	void add_exactly(StringView route, Functor&& fnc)
+	{
+		struct helper_exactly : directory_router_details::caller<StringView> {
+			Functor fnc;
+			StringView pattern;
+			helper_exactly(Functor&& fnc, StringView p) : fnc(std::forward<Functor>(fnc)), pattern(p) {}
+			bool match(StringView sv) const override {
+				return pattern == sv;
+			}
+			void call(StringView sv) const override {
+				if constexpr (requires(StringView s){fnc(s);}) fnc(sv);
+				else fnc();
+			}
+		};
+
+		add<helper_exactly>(route, std::forward<Functor>(fnc));
+	}
+
+	template<typename T, typename Functor>
+	inline void add(StringView route, Functor&& fnc)
+	{
+		constexpr std::size_t size = sizeof(T);
+		auto allocated = mem->allocate(size);
+		directory_router_details::caller_deleter<MR, StringView> deleter(mem, size);
+		directory_router_details::caller_ptr ptr(
+		    new (allocated) T(std::forward<Functor>(fnc), route),
+		    std::move(deleter)
+		    );
+		routes.emplace_back(std::move(ptr));
+	}
+
 	MR* mem;
 	ContainerFactory factory;
 	Container routes;
