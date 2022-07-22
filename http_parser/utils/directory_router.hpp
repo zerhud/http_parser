@@ -75,7 +75,7 @@ struct directory_router final {
 	}
 
 	template<typename Functor>
-	auto& operator()(StringView route, Functor&& fnc)
+	auto& add(StringView route, Functor&& fnc)
 	{
 		if(route.back() == '/') add_substr(route, std::forward<Functor>(fnc));
 		else add_exactly(route, std::forward<Functor>(fnc));
