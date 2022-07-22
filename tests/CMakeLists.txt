@@ -36,10 +36,12 @@ add_unit_test(http1_parsers)
 add_unit_test(parser)
 add_unit_test(utils)
 add_unit_test(acceptors)
+add_unit_test(router)
 
-if(UNIX)
 
 # linux specefiec tests
+if(UNIX)
+
 #add_unit_test(integrated)
 
 #find_package(Boost COMPONENTS fiber context REQUIRED)
