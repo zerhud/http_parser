@@ -309,12 +309,20 @@ public:
 		recalculate();
 	}
 
-	std::int64_t port() const
+	std::optional<std::uint16_t> port_asis() const
 	{
-		std::int64_t port_=80;
+		return parsed.port.empty()
+		     ? std::nullopt
+		     : std::make_optional(to_int<StringView, std::uint16_t>(parsed.port))
+		     ;
+	}
+
+	std::uint16_t port() const
+	{
+		std::uint16_t port_=80;
 		auto pstr = parsed.port;
 		//TODO: add more schemes
-		if(!pstr.empty()) port_ = to_int(pstr);
+		if(!pstr.empty()) port_ = to_int<StringView, std::uint16_t>(pstr);
 		else if(is_ascii_eq(scheme(), "https")) {
 			port_ = 443;
 		}

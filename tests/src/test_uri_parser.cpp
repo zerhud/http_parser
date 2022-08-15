@@ -26,6 +26,7 @@ BOOST_AUTO_TEST_CASE(example)
 	BOOST_TEST(rb.scheme() == "https");
 	BOOST_TEST(rb.host() == "google.com");
 	BOOST_TEST(rb.port() == 81);
+	BOOST_TEST(rb.port_asis().value() == 81);
 	BOOST_TEST(rb.user() == "user");
 	BOOST_TEST(rb.pass() == "pa$s");
 	BOOST_TEST(rb.path() == "/some/path");
@@ -56,6 +57,7 @@ BOOST_AUTO_TEST_CASE(wide)
 	BOOST_CHECK(rb.port() == 81);
 
 	BOOST_TEST((uri_wparser(L"http://g.com")).port() == 80);
+	BOOST_TEST((uri_wparser(L"http://g.com")).port_asis().has_value() == false);
 	BOOST_CHECK((uri_wparser(L"http://g.com")).path() == L"/");
 	BOOST_TEST((uri_wparser(L"https://g.c/s/p?a=1#b")).port() == 443);
 	BOOST_TEST((uri_wparser(L"https://u:pa$s@g.c:81/s/p?a=1#b")).port() == 81);
@@ -71,6 +73,9 @@ BOOST_AUTO_TEST_CASE(request)
 }
 BOOST_AUTO_TEST_CASE(port)
 {
+	BOOST_TEST((uri_parser("http://google.com")).port_asis().has_value() == false);
+	BOOST_TEST((uri_parser("http://google.com:81/some/path?a=1#b")).port_asis().value() == 81);
+
 	BOOST_TEST((uri_parser("http://google.com")).port() == 80);
 	BOOST_TEST((uri_parser("https://google.com/some/path?a=1#b")).port() == 443);
 	BOOST_TEST((uri_parser("http://google.com/some/path?a=1#b")).port() == 80);
